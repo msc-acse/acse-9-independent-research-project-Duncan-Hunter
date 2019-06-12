@@ -37,3 +37,8 @@ Create a 'Network' (name still on for decision).
 	Fuses at the end to create a long pipe in desired shape.
 
 Join Networks at junctions
+
+### Requirements for pipes.py:
+- libgmsh.so, from the GMSH SDK, available [here](http://gmsh.info/)
+- numpy
+- time to understand how it works, and deal with bugs, as it is incredibly raw
