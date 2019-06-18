@@ -1,0 +1,27 @@
+**** COMPILING CODE: 
+(in source folder) 
+(1) >> ./configure --enable-2d-adaptivity && make clean && make && make mp
+(2) check that the executlable has been succefully compiled: <souce>/bin/icferst 
+--------------------------------------------------------------------------------
+****SIMULATION:
+(in simulation folder)
+(1) Does a file name exist called <name>.mpml
+(2) Does a mesh files exist called <mesh>.msh
+--------------------------------------------------------------------------------
+****GUI/DIAMOND:
+>> diamond -s /source_folder/legacy_reservoir_prototype/schema/multiphase.rng <name>.mpml
+--------------------------------------------------------------------------------
+****GMSH:
+>> gmsh <mesh>.msh 
+or 
+>> gmsh <geometry>.geo
+GENRATING A MSH FILE from a .geo file:
+>> gmsh -2/-3 <geometry>.geo
+--------------------------------------------------------------------------------
+****RUN:
+>>/source_folder/bin/icferst <run>.mpml
+--------------------------------------------------------------------------------
+****PARAVIEW:
+>> paraview *.vtu
+or
+open paraview and load <output>.vtu files
