@@ -77,27 +77,6 @@ class Network():
 
         self.entities = [self.inflow_tag]  # list of dimtags of entities in pipe
     
-    def _create_rotate_cylinder(self, length, radius, direction):
-        cyl_tag = (3, factory.addCylinder(0, 0, 0, 0, 0, length, radius))
-        factory.synchronize()
-        surfaces = model.getBoundary([cyl_tag], False, False, False)
-        
-        if np.allclose(self.direction, np.array([0, 0, 1])) is False:
-            rotation_axis = np.cross(direction, self.up_vector)
-            if np.allclose(rotation_axis, np.zeros(3)):
-                rotation_axis = np.array([1, 0, 0])
-            rotation_angle = np.arccos((np.dot(direction, self.up_vector)/  # can replace
-                                    (np.linalg.norm(direction)*np.linalg.norm(self.up_vector))))
-            
-            factory.rotate([cyl_tag], 0, 0, length/2, 
-                        rotation_axis[0], rotation_axis[1], rotation_axis[2],
-                        -rotation_angle)
-        
-        out_centre = factory.getCenterOfMass(2, surfaces[1][1])
-        in_centre = factory.getCenterOfMass(2, surfaces[2][1])        
-        factory.synchronize()
-        return cyl_tag, np.array(in_centre), np.array(out_centre)
-    
     def _set_mesh_size(self, dimtag, lcar):
         ov = model.getBoundary(dimtag, False, False, True)
         mesh.setSize(ov, lcar)
@@ -117,17 +96,11 @@ class Network():
         lcar: (float) mesh size of piece.
         """
         piece = Cylinder(length, self.radius, self.direction, lcar)
-        
-        #temp_tag, in_centre, out_centre = self._create_rotate_cylinder(length, self.radius, self.direction)
-        
-        # This line may need fixing
         translate_vector = self.out_centre - piece.in_centre
         factory.translate([piece.vol_tag], *list(translate_vector))
         factory.synchronize()
         piece.update_centres()
         self._set_mesh_size(piece.vol_tag, lcar)
-        
-        ## May need a bug fix
         self.out_centre = piece.out_centre      
         self.entities.append(piece.vol_tag)
 
@@ -265,7 +238,8 @@ class PipePiece():
         self.vol_centre = np.array(factory.getCenterOfMass(*self.vol_tag))
         self.in_centre = np.array(factory.getCenterOfMass(*self.in_surface))
         self.out_centre = np.array(factory.getCenterOfMass(*self.out_surface))     
-        
+
+
 class Cylinder(PipePiece):
     """
     Class representing a GMSH cylinder with base at 0,0,0 facing upwards.
@@ -426,8 +400,8 @@ class Mitered(PipePiece):
         factory.rotate([vol_tag], *in_centre, *list(v3), rot2_angle)
         factory.synchronize()
         super(Mitered, self).__init__(radius, vol_tag, in_surface, out_surface, v3, v4)
-        
-        
+
+    
 class t_junction():
     def __init__(self, radius, out_num=2):
         self.out_num=2
