@@ -53,6 +53,7 @@ class Network():
             Update - made easier by classes
         - Mesh size of pieces after fuse
         - Locations for postprocessing
+        - Physical groups
         - Testing
         - Junctions
     """
