@@ -59,24 +59,23 @@ class Network():
     """
     def __init__(self, length, radius, lcar):
         self.lcar = lcar
-        self.in_centre = None
-        self.out_centre = None
         self.length = length
         self.direction = np.array([1, 0, 0])  # direction of pipe
         self.up_vector =  np.array([0, 0, 1])
         self.radius = radius
         #self.lcar = lcar
         
-        self.inflow_tag, self.in_centre, self.out_centre = self._create_rotate_cylinder(length, self.radius, self.direction)
-        #self.in_surface_tag
-        #self.out_surface_tag
-        self._set_mesh_size(self.inflow_tag, lcar)
-        self.surfaces = self._get_surfaces(self.inflow_tag)
-        #self.edge_surface = self.surfaces[0]
-        #self.out_surface = self.surfaces[1]
-        #self.in_surface = self.surfaces[2]
+        piece = Cylinder(length, radius, self.direction, lcar)
+        
+        self.in_surface = piece.in_surface  # unsure of use
+        self.in_centre = piece.in_centre
+        self.out_centre = piece.out_centre
 
-        self.entities = [self.inflow_tag]  # list of dimtags of entities in pipe
+        self._set_mesh_size(self.in_surface, lcar)
+
+        self.entities = [piece.vol_tag]  # list of dimtags of entities in pipe
+        self.lcar_list = [lcar]
+        self.vol_centres = [piece.vol_centre]
     
     def _set_mesh_size(self, dimtag, lcar):
         ov = model.getBoundary(dimtag, False, False, True)
@@ -229,8 +228,8 @@ class PipePiece():
         self.vol_tag  = vol_tag
         self.in_surface = in_tag
         self.out_surface = out_tag
-        self.vol_centre = factory.getCenterOfMass(*vol_tag)
-        self.in_centre = factory.getCenterOfMass(*in_tag)
+        self.vol_centre = np.array(factory.getCenterOfMass(*vol_tag))
+        self.in_centre = np.array(factory.getCenterOfMass(*in_tag))
         self.out_centre = factory.getCenterOfMass(*out_tag)
         self.in_direction = in_direction
         self.out_direction = out_direction

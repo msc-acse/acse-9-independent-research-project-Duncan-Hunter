@@ -1,5 +1,6 @@
 import pipes
 import gmsh  # Download gmsh.py, and libgmsh files from gmsh-sdk
+import os
 import numpy as np
 
 model = gmsh.model
@@ -15,6 +16,8 @@ model.add("Example")
 Uncomment for different example meshes
 Change filename
 """
+
+network = pipes.Network(0.1, 0.5, 0.2)
 
 fname = "test"
 
@@ -32,9 +35,6 @@ fname = "test"
 #    network.add_pipe(1, 0.2)
 #    network.add_curve([1, 0, 0], [0.55, 0, 0], 0.2)
 #network.fuse_objects()
-
-#network.add_mitered([1,1,0])
-#network.add_mitered([1,0,0])
 
 #Chicane
 #network.add_pipe(1, 0.1)
