@@ -3,16 +3,13 @@ import numpy as np
 import os
 import itertools
 from scipy.spatial.transform import Rotation as R
-
+import time
 
 model = gmsh.model
 factory = model.occ
 mesh = model.mesh
 
-gmsh.initialize()
-gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.2)
 #gmsh.option.setNumber("General.Terminal", 1)
-model.add("Pipes")
 
 def vec_angle(vec1, vec2):
     return np.arccos((np.dot(vec1, vec2)/
@@ -21,6 +18,9 @@ def vec_angle(vec1, vec2):
 def proj(vec1, vec2):
     """
     Component of vec1 along vec2
+    vec1, vec2: (np.array shape 3) xyz vector
+    
+    returns: (float) component of vec1 along vec2
     """
     return np.dot(vec1, vec2)/np.linalg.norm(vec2)
 
@@ -43,41 +43,71 @@ def check_intersect(objects, tools):
 class Network():
     """
     Overall BUGS
-        
+        First Rotation is wrong for mitred and junction
     Todo
-        - Keep track of final surface tag/surface tags in general
+        - Junctions
+            Implemented as add_junction
+            Needs to be ready for when we add pipes to it
+        - Keep track of surface tags in general
             Update - made easier by classes
+            Need list of centres
         - Keep track of orientations ??
             Update - made easier by classes
         - Keep track of locations
             Update - made easier by classes
+            append to vol_centres
+            Use dictionary to map tags to centres?
         - Mesh size of pieces after fuse
+            Centre to mesh size mapping
+            Fields with locations
         - Locations for postprocessing
         - Physical groups
+            Need to deal with excess outflows or inflows
         - Testing
-        - Junctions
     """
-    def __init__(self, length, radius, lcar):
+    def __init__(self, length, radius, direction, lcar):
+        """
+        length: (float) length of piece.
+        radius: (float) radius of pipe.
+        direction: (list) Direction pipe will be facing in x, y, z vector format.
+        lcar: (float) Mesh size of this piece
+        """
+        
         self.lcar = lcar
         self.length = length
-        self.direction = np.array([1, 0, 0])  # direction of pipe
+        self.direction = np.array(direction)  # direction of pipe
         self.up_vector =  np.array([0, 0, 1])
         self.radius = radius
         #self.lcar = lcar
         
-        piece = Cylinder(length, radius, self.direction, lcar)
+        piece = Cylinder(length, radius, self.direction, lcar)        
         
         self.in_surface = piece.in_surface  # unsure of use
         self.in_centre = piece.in_centre
         self.out_centre = piece.out_centre
-
-        self._set_mesh_size(self.in_surface, lcar)
+        self.vol_tag = None
+        
+        # self._set_mesh_size(self.in_surface, lcar)
 
         self.entities = [piece.vol_tag]  # list of dimtags of entities in pipe
         self.lcar_list = [lcar]
         self.vol_centres = [piece.vol_centre]
+        
+        self._has_physical_groups = False
+        self.physical_in_surface = None
+        self.physical_out_surface = None
+        self.physical_no_slip = None
+        self.physical_volume = None
     
     def _set_mesh_size(self, dimtag, lcar):
+        """
+        Use centres or faces of objects to set desired mesh size.
+        
+        Box field?
+        
+        
+        """
+        
         ov = model.getBoundary(dimtag, False, False, True)
         mesh.setSize(ov, lcar)
         
@@ -96,11 +126,13 @@ class Network():
         lcar: (float) mesh size of piece.
         """
         piece = Cylinder(length, self.radius, self.direction, lcar)
+
         translate_vector = self.out_centre - piece.in_centre
         factory.translate([piece.vol_tag], *list(translate_vector))
         factory.synchronize()
         piece.update_centres()
-        self._set_mesh_size(piece.vol_tag, lcar)
+
+        # self._set_mesh_size(piece.vol_tag, lcar)
         self.out_centre = piece.out_centre      
         self.entities.append(piece.vol_tag)
 
@@ -130,6 +162,7 @@ class Network():
         piece = Curve(self.radius, self.direction, new_direction, centre_of_rotation, lcar)
         translate_vector = self.out_centre - piece.in_centre
         factory.translate([piece.vol_tag], *list(translate_vector))
+        #piece.out_centre += translate_vector
         factory.synchronize()
         piece.update_centres()
 
@@ -191,6 +224,19 @@ class Network():
         self.out_centre = piece.out_centre
         self.radius = new_radius
         self.entities.append(piece.vol_tag)
+        
+    def add_T_junction(self, T_direction):
+        """
+        Add a T junction. T_Direction cannot be the same as self.direction 
+        """
+        piece = T_junction(self.radius, self.direction, T_direction)
+        translate_vector = self.out_centre - piece.in_centre
+        factory.translate([piece.vol_tag], *list(translate_vector))
+        piece.update_centres()
+        factory.synchronize()
+        self.out_centre = piece.out_centre
+        self.direction = piece.out_direction
+        self.entities.append(piece.vol_tag)
     
     def fuse_objects(self):
         #fuse_tool = self.entities[0]
@@ -200,12 +246,42 @@ class Network():
         Update inflow_tag, outflow_tag
         Update add functions to find out which is outflow tag.
         Set mesh sizes
+        
+        Todo
+            - Decide on what attributes we want to use
         """
-        print(self.entities)
         out_dim_tags, out_dim_tag_map = factory.fuse([self.entities[0]],self.entities[1:])
         factory.synchronize()
-
-             
+        self.vol_tag = out_dim_tags[0]
+        surfaces = model.getBoundary([self.vol_tag], False)
+        n_surfaces = len(surfaces)
+        planes = [surfaces[i] for i in range(n_surfaces) if model.getType(*surfaces[i]) == "Plane"]
+        no_slip = [surfaces[i] for i in range(n_surfaces) if model.getType(*surfaces[i]) != "Plane"]
+        no_slip_tags = [dimtag[1] for dimtag in no_slip]
+        found_in = False  # being extra safe
+        found_out = False
+        # Find in surface. use np.isclose
+        for dim, tag in planes:
+            loc = np.array(factory.getCenterOfMass(dim, tag))
+            if np.allclose(loc, self.in_centre) and not found_in:
+                self.in_surface = (dim, tag)
+                found_in = True
+            elif np.allclose(loc, self.out_centre) and not found_out:
+                self.out_surface = (dim, tag)
+                self.out_centre = loc
+                found_out = True
+        
+        if self._has_physical_groups:
+            model.removePhysicalGroups()
+        
+        self.physical_in_surface = model.addPhysicalGroup(2, [self.in_surface[1]])
+        self.physical_out_surface = model.addPhysicalGroup(2, [self.out_surface[1]])
+        self.physical_no_slip = model.addPhysicalGroup(2, no_slip_tags)
+        self.physical_volume = model.addPhysicalGroup(3, [self.vol_tag[1]])
+        self._has_physical_groups = True
+        self.entities = out_dim_tags
+        # Find out surface
+                 
     def rotate_network(self, new_direction, out_flow_direction=True):
         """
         rotate pipe so outflow is pointed in new_direction
@@ -256,8 +332,8 @@ class Cylinder(PipePiece):
         vol_tag = (3, factory.addCylinder(0,0,0,0,0,length,radius))
         factory.synchronize()
         surfaces = model.getBoundary([vol_tag], False)
-        in_surface = surfaces[1]
-        out_surface = surfaces[2]
+        in_surface = surfaces[2]  # these are switched
+        out_surface = surfaces[1]
         direction = np.array(direction)
         up_vector = np.array([0, 0, 1])
 
@@ -273,7 +349,7 @@ class Cylinder(PipePiece):
                 rotation_angle *= -1
             factory.rotate([vol_tag], 0, 0, length/2, 
                         rotation_axis[0], rotation_axis[1], rotation_axis[2],
-                        rotation_angle)
+                        -rotation_angle)
             factory.synchronize()
             out_direction = np.copy(direction)
             in_direction = np.copy(direction)
@@ -385,7 +461,9 @@ class Mitered(PipePiece):
             rot_vec = -rot_angle * rot_axis  # minus sign here
             rot1 = R.from_rotvec(rot_vec)
             v2 = rot1.apply(v2)  # find new outlet vector post rotation
-        
+        else:
+            in_centre = factory.getCenterOfMass(*in_surface)
+
         #Rot2
         b1 = np.cross(v4, v3)  # basis vectors perpendicular to direction (rotation axis)
         b2 = np.cross(b1, v3)  # and perpendicular to other basis
@@ -397,24 +475,101 @@ class Mitered(PipePiece):
         if np.dot(v3, cross) < 0:
             rot2_angle *= -1
         
+
         factory.rotate([vol_tag], *in_centre, *list(v3), rot2_angle)
         factory.synchronize()
+
         super(Mitered, self).__init__(radius, vol_tag, in_surface, out_surface, v3, v4)
 
-    
-class t_junction():
-    def __init__(self, radius, out_num=2):
+
+class T_junction(PipePiece):
+    def __init__(self, radius, direction, T_direction, T_type='in'):
         self.out_num=2
-        self.radius=radius
-        in_tag = (3, factory.addCylinder(0,0,0,0,0,radius*1.01, radius))
-        mid_tag = (3, factory.addCylinder(0,0,0,radius*1.01,0,0,radius))
-        out_tag = (3, factory.addCylinder(0,0,0,0,0,-radius*1.01, radius))
-        self.tag, out_dim_tag_map = factory.fuse([in_tag], [mid_tag, out_tag])
-        self.in_direction = np.array([0, 0, 1])
-        self.mid_direction = np.array([1, 0, 0])
-        self.out_direction = np.array([0, 0, -1])
+        direction = np.array(direction)
+        self.T_direction = np.array(T_direction)
+        
+
+        
+        T_angle = vec_angle(direction, self.T_direction)
+        if T_angle < np.pi/2:
+            rot_sign = -1
+            beta = np.pi/2 - abs(T_angle)
+        else:
+            rot_sign = 1
+            beta = abs(T_angle) - np.pi/2
+            
+        height = radius*np.tan(beta) + radius/np.cos(beta)
+        # Calculating height needed to emerge from merge
+
+        in_tag = (3, factory.addCylinder(0,0,0,0,0,1.1*height, radius))
+        mid_tag = (3, factory.addCylinder(0,0,0,1.1*height,0,0,radius))
+        out_tag = (3, factory.addCylinder(0,0,0,0,0,-1.1*height, radius))
+        factory.rotate([mid_tag], 0,0,0, 0, 1, 0, rot_sign*beta)
         factory.synchronize()
-        surfaces = model.getBoundary([self.tag], False)
-        self.in_centre = factory.getCenterOfMass(2, surfaces[3][1])
+        
+        vol_tags, out_dim_tag_map = factory.fuse([in_tag], [mid_tag, out_tag])
+        vol_tag = vol_tags[0]
+        factory.synchronize()
+        
+        surfaces = model.getBoundary([vol_tag], False)
+        in_surface = surfaces[5]  # 5 3
+        out_surface = surfaces[3]
+        self.mid_surface = surfaces[4]
+
+        mid_direction = np.array([1, 0, 0])
+
+        up_vector = np.array([0, 0, 1])
+        if np.allclose(direction, up_vector) is False:
+            cross = np.cross(up_vector, direction)
+            rotation_axis = np.cross(direction, up_vector)
+            if np.allclose(rotation_axis, np.array([0, 0, 0])):  # if rotating 180 degrees
+                rotation_axis = np.array([1, 0, 0])
+            rotation_angle = np.arccos((np.dot(direction, up_vector)/  # can replace
+                                    (np.linalg.norm(direction)*np.linalg.norm(up_vector))))
+            
+            if np.dot(rotation_axis, cross) > 0:
+                rotation_angle *= -1
+            vol_centre = factory.getCenterOfMass(*vol_tag)
+            factory.rotate([vol_tag], *vol_centre, 
+                        rotation_axis[0], rotation_axis[1], rotation_axis[2],
+                        -rotation_angle)
+            factory.synchronize()
+            
+            rot_vec = -rotation_angle * rotation_axis
+            rot1 = R.from_rotvec(rot_vec)
+            mid_direction = rot1.apply(mid_direction)
+            print(mid_direction)
+            
+            out_direction = np.copy(direction)
+            in_direction = np.copy(direction)
+        else:
+            out_direction = np.copy(up_vector)
+            in_direction = np.copy(up_vector)
+
+        b1 = np.cross(T_direction, direction)  # basis vectors perpendicular to direction (rotation axis)
+        b2 = np.cross(b1, direction)  # and perpendicular to other basis
+        alpha = np.array([proj(mid_direction, b1), proj(mid_direction, b2)]) # v2 in basis
+        beta = np.array([proj(T_direction, b1), proj(T_direction, b2)])  # v4 (new_direction) in basis
+        # Find angle between two vectors in basis
+        rot2_angle = vec_angle(alpha, beta)
+        cross = np.cross(mid_direction, T_direction)
+        if np.dot(direction, cross) < 0:
+            rot2_angle *= -1
+        
+        in_centre = factory.getCenterOfMass(2, surfaces[3][1])
         self.mid_centre = factory.getCenterOfMass(2, surfaces[4][1])
-        self.out_centre = factory.getCenterOfMass(2, surfaces[5][1])
+        
+        print(rot2_angle)
+        factory.rotate([vol_tag], *in_centre, *list(direction), rot2_angle)
+        factory.synchronize()
+        
+        super(T_junction, self).__init__(radius, vol_tag, in_surface, out_surface, out_direction, out_direction)
+    
+    def update_centres(self):
+        """
+        need to update T centre too
+        """
+        self.vol_centre = np.array(factory.getCenterOfMass(*self.vol_tag))
+        self.in_centre = np.array(factory.getCenterOfMass(*self.in_surface))
+        self.out_centre = np.array(factory.getCenterOfMass(*self.out_surface))
+        self.mid_centre = np.array(factory.getCenterOfMass(*self.mid_surface))
