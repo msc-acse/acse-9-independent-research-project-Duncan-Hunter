@@ -18,16 +18,28 @@ Change filename
 """
 fname = "chicane"
 
+# piece = pipes.Cylinder(1, 0.5, [1,0,0], 0.2)
+# piece = pipes.Mitered(0.5, [-1,0,1], [-1,0,0], 0.2)
+# piece = pipes.Curve(0.5, [1,0,0], [0,1,0], 1, 0.2)
+# piece = pipes.T_junction(0.5, [1,0,0], [1,1,-1], 0.2)
 
 network = pipes.Network(0.1, 0.5, [1,0,0], 0.2)
 
+# Chicane
+network.add_pipe(1, 0.1)
+network.add_curve([0, -1, 0], 1, 0.1)
+network.add_pipe(0.5, 0.1)
+network.add_curve([1, 0, 0], 2, 0.1)
+network.add_pipe(4, 0.1)
+network.fuse_objects()
+
+
 # Junction
 # network.add_pipe(1, 0.2)
-# network.add_T_junction([0,0,1])
+# network.add_T_junction([1,0,1])
 # network.fuse_objects()
 
-
-# Spiral
+# Spiral - using loops
 #for i in range(3):
 #   network.add_pipe(1,0.2)
 #   network.add_mitered([0, 0, 1], 0.2)
@@ -42,19 +54,6 @@ network = pipes.Network(0.1, 0.5, [1,0,0], 0.2)
 #   network.add_pipe(1, 0.2)
 #   network.add_curve([1, 0, 0], [0.55, 0, 0], 0.2)
 #network.fuse_objects()
-
-# Chicane
-# network.add_pipe(1, 0.1)
-# network.add_curve([0, -1, 0], [0, -1, 0], 0.1)
-# network.add_pipe(0.5, 0.1)
-# network.add_curve([1, 0, 0], [2, 0, 0], 0.1)
-# network.add_pipe(4, 0.1)
-# network.fuse_objects()
-
-#print("In", network.physical_in_surface)
-#print("Out", network.physical_out_surface)
-#print("Wall", network.physical_no_slip)
-#print("Volume", network.physical_volume)
 
 # U bend positive x to -x, through -y
 #network.add_pipe(1, 0.2)
@@ -81,7 +80,6 @@ network = pipes.Network(0.1, 0.5, [1,0,0], 0.2)
 
 
 mesh.generate(3)
-
 # gmsh.write(fname + ".msh2")
 # os.rename(fname + ".msh2", fname + ".msh")
 gmsh.option.setNumber("Mesh.Binary", 1)
