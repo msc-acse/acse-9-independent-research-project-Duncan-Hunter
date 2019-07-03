@@ -1,4 +1,6 @@
+
 import pipes
+
 import gmsh  # Download gmsh.py, and libgmsh files from gmsh-sdk
 import os
 import numpy as np
@@ -10,28 +12,29 @@ mesh = model.mesh
 gmsh.initialize()
 gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.2)
 # # gmsh.option.setNumber("General.Terminal", 1)
-model.add("Example")
+gmsh.model.add("Example")
+
+
 
 """
 Uncomment for different example meshes
 Change filename
 """
 fname = "chicane"
-
-# piece = pipes.Cylinder(1, 0.5, [1,0,0], 0.2)
+piece = pipes.Cylinder(1, 0.5, [1,0,0], 0.2)
 # piece = pipes.Mitered(0.5, [-1,0,1], [-1,0,0], 0.2)
 # piece = pipes.Curve(0.5, [1,0,0], [0,1,0], 1, 0.2)
 # piece = pipes.T_junction(0.5, [1,0,0], [1,1,-1], 0.2)
 
-network = pipes.Network(0.1, 0.5, [1,0,0], 0.2)
+# network = pipes.Network(0.1, 0.5, [1,0,0], 0.2)
 
 # Chicane
-network.add_pipe(1, 0.1)
-network.add_curve([0, -1, 0], 1, 0.1)
-network.add_pipe(0.5, 0.1)
-network.add_curve([1, 0, 0], 2, 0.1)
-network.add_pipe(4, 0.1)
-network.fuse_objects()
+# network.add_pipe(1, 0.1)
+# network.add_curve([0, -1, 0], 1, 0.1)
+# network.add_pipe(0.5, 0.1)
+# network.add_curve([1, 0, 0], 2, 0.1)
+# network.add_pipe(4, 0.1)
+# network.fuse_objects()
 
 
 # Junction
@@ -70,7 +73,7 @@ network.fuse_objects()
 #network.fuse_objects()
 
 # Sharp Chicane
-# network.add_pipe(1, 0.2)  
+# network.add_pipe(1, 0.2)
 # network.add_mitered([0,1,0], 0.2)
 # network.add_pipe(1, 0.2)
 # network.add_mitered([1,0,0], 0.2)
