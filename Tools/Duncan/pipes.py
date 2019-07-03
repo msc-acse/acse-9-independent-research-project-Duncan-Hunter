@@ -1,19 +1,19 @@
 """
 Create pipes and improve this docstring.
 """
+import gmsh
 import numpy as np
 from scipy.spatial.transform import Rotation
-import gmsh
 
-MODEL = gmsh.model
-FACTORY = MODEL.occ
-MESH = MODEL.mesh
+model = gmsh.model
+factory = model.occ
+mesh = model.mesh
 #gmsh.option.setNumber("General.Terminal", 1)
 """
 Overall BUGS
     Todo
-        - MESH size of pieces after fuse
-            Centre to MESH size mapping
+        - mesh size of pieces after fuse
+            Centre to mesh size mapping
             Fields with locations
         - Junctions
             Ability to add to a junction
@@ -59,12 +59,12 @@ def check_intersect(objects, tools):
     returns: (bool) True if there is an intersection.
                     False if there is no intersection.
     """
-    intersect = FACTORY.intersect(objects,
+    intersect = factory.intersect(objects,
                                   tools,
                                   removeObject=False,
                                   removeTool=False)
     if intersect:
-        FACTORY.remove(intersect, True)
+        factory.remove(intersect, True)
         return True
     else:
         return False
@@ -149,9 +149,9 @@ class Network():
         dimtag: (tuple) dimtag of object you're trying to get the boundary of.
         Get in/out surfaces of object
         """
-        surfaces = MODEL.getBoundary(dimtag, False, False, False)
+        surfaces = model.getBoundary(dimtag, False, False, False)
         return surfaces
-        #if MODEL.getType(dim, tag) != 'Plane':
+        #if model.getType(dim, tag) != 'Plane':
 
     def add_pipe(self, length, lcar):
         """Adds a pipe to the Network at the outlet.
@@ -163,8 +163,8 @@ class Network():
         piece = Cylinder(length, self.radius, self.direction, lcar)
 
         translate_vector = self.out_centre - piece.in_centre
-        FACTORY.translate([piece.vol_tag], *list(translate_vector))
-        FACTORY.synchronize()
+        factory.translate([piece.vol_tag], *list(translate_vector))
+        factory.synchronize()
         piece.update_centres()
 
         # self._set_MESH_size(piece.vol_tag, lcar)
@@ -199,9 +199,9 @@ class Network():
         piece = Curve(self.radius, self.direction, new_direction, bend_radius,
                       lcar)
         translate_vector = self.out_centre - piece.in_centre
-        FACTORY.translate([piece.vol_tag], *list(translate_vector))
+        factory.translate([piece.vol_tag], *list(translate_vector))
         #piece.out_centre += translate_vector
-        FACTORY.synchronize()
+        factory.synchronize()
         piece.update_centres()
 
         #self._set_MESH_size(revolve_tags[1], lcar)
@@ -219,16 +219,16 @@ class Network():
         Args:
             new_direction: (list, length 3) xyz vector representing
                 the new direction of the pipe.
-            lcar: (float) size of MESH of this piece.
+            lcar: (float) size of mesh of this piece.
         """
         piece = Mitered(self.radius, self.direction, new_direction, lcar)
 
         translate_vector = self.out_centre - piece.in_centre
-        FACTORY.translate([piece.vol_tag], *list(translate_vector))
+        factory.translate([piece.vol_tag], *list(translate_vector))
 
         piece.update_centres()
 
-        FACTORY.synchronize()
+        factory.synchronize()
 
         self.out_centre = piece.out_centre
         self.direction = piece.out_direction
@@ -246,7 +246,7 @@ class Network():
             new_radius: (float) radius to change to.
             change_length: (float) Length that the change takes
                 place over. Must be less than length and > 0.
-            lcar: (float) MESH size for this piece.
+            lcar: (float) mesh size for this piece.
 
         Raises:
             ValueErrors: change_length is not between length and 0.
@@ -260,21 +260,21 @@ class Network():
         else:
             piece = Cylinder(length, self.radius, self.direction, lcar)
         translate_vector = self.out_centre - piece.in_centre
-        FACTORY.translate([piece.vol_tag], *list(translate_vector))
+        factory.translate([piece.vol_tag], *list(translate_vector))
         piece.update_centres()
-        FACTORY.synchronize()
+        factory.synchronize()
         if new_radius > self.radius:
-            lines = MODEL.getBoundary([piece.in_surface], False, False)
-            FACTORY.chamfer([piece.vol_tag[1]], [lines[0][1]],
+            lines = model.getBoundary([piece.in_surface], False, False)
+            factory.chamfer([piece.vol_tag[1]], [lines[0][1]],
                             [piece.in_surface[1]],
                             [new_radius - self.radius, change_length])
-            FACTORY.synchronize()
+            factory.synchronize()
         elif new_radius < self.radius:
-            lines = MODEL.getBoundary(piece.out_surface, False, False)
-            FACTORY.chamfer([piece.vol_tag[1]], [lines[0][1]],
+            lines = model.getBoundary(piece.out_surface, False, False)
+            factory.chamfer([piece.vol_tag[1]], [lines[0][1]],
                             [piece.out_surface[1]],
                             [self.radius - new_radius, change_length])
-            FACTORY.synchronize()
+            factory.synchronize()
         self.out_centre = piece.out_centre
         self.radius = new_radius
         self.entities.append(piece.vol_tag)
@@ -291,9 +291,9 @@ class Network():
         """
         piece = TJunction(self.radius, self.direction, t_direction)
         translate_vector = self.out_centre - piece.in_centre
-        FACTORY.translate([piece.vol_tag], *list(translate_vector))
+        factory.translate([piece.vol_tag], *list(translate_vector))
         piece.update_centres()
-        FACTORY.synchronize()
+        factory.synchronize()
         self.out_centre = piece.out_centre
         self.direction = piece.out_direction
         self.entities.append(piece.vol_tag)
@@ -306,25 +306,25 @@ class Network():
         Updates inflow_tag, outflow_tag. Creates the physical
         surfaces needed for ICFERST.
         """
-        out_dim_tags = FACTORY.fuse([self.entities[0]], self.entities[1:])[0]
-        FACTORY.synchronize()
+        out_dim_tags = factory.fuse([self.entities[0]], self.entities[1:])[0]
+        factory.synchronize()
         self.vol_tag = out_dim_tags[0]
-        surfaces = MODEL.getBoundary([self.vol_tag], False)
+        surfaces = model.getBoundary([self.vol_tag], False)
         n_surfaces = len(surfaces)
         planes = [
             surfaces[i] for i in range(n_surfaces)
-            if MODEL.getType(*surfaces[i]) == "Plane"
+            if model.getType(*surfaces[i]) == "Plane"
         ]
         no_slip = [
             surfaces[i] for i in range(n_surfaces)
-            if MODEL.getType(*surfaces[i]) != "Plane"
+            if model.getType(*surfaces[i]) != "Plane"
         ]
         no_slip_tags = [dimtag[1] for dimtag in no_slip]
         found_in = False  # being extra safe
         found_out = False
         # Find in surface. use np.isclose
         for dim, tag in planes:
-            loc = np.array(FACTORY.getCenterOfMass(dim, tag))
+            loc = np.array(factory.getCenterOfMass(dim, tag))
             if np.allclose(loc, self.in_centre) and not found_in:
                 self.in_surface = (dim, tag)
                 found_in = True
@@ -334,14 +334,14 @@ class Network():
                 found_out = True
 
         if self._has_physical_groups:
-            MODEL.removePhysicalGroups()
+            model.removePhysicalGroups()
 
-        self.physical_in_surface = MODEL.addPhysicalGroup(
+        self.physical_in_surface = model.addPhysicalGroup(
             2, [self.in_surface[1]])
-        self.physical_out_surface = MODEL.addPhysicalGroup(
+        self.physical_out_surface = model.addPhysicalGroup(
             2, [self.out_surface[1]])
-        self.physical_no_slip = MODEL.addPhysicalGroup(2, no_slip_tags)
-        self.physical_volume = MODEL.addPhysicalGroup(3, [self.vol_tag[1]])
+        self.physical_no_slip = model.addPhysicalGroup(2, no_slip_tags)
+        self.physical_volume = model.addPhysicalGroup(3, [self.vol_tag[1]])
         self._has_physical_groups = True
         self.entities = out_dim_tags
         # Find out surface
@@ -382,17 +382,17 @@ class PipePiece():
         self.vol_tag = vol_tag
         self.in_surface = in_tag
         self.out_surface = out_tag
-        self.vol_centre = np.array(FACTORY.getCenterOfMass(*vol_tag))
-        self.in_centre = np.array(FACTORY.getCenterOfMass(*in_tag))
-        self.out_centre = FACTORY.getCenterOfMass(*out_tag)
+        self.vol_centre = np.array(factory.getCenterOfMass(*vol_tag))
+        self.in_centre = np.array(factory.getCenterOfMass(*in_tag))
+        self.out_centre = factory.getCenterOfMass(*out_tag)
         self.in_direction = in_direction
         self.out_direction = out_direction
 
     def update_centres(self):
         """Updates centres of faces attributes of piece."""
-        self.vol_centre = np.array(FACTORY.getCenterOfMass(*self.vol_tag))
-        self.in_centre = np.array(FACTORY.getCenterOfMass(*self.in_surface))
-        self.out_centre = np.array(FACTORY.getCenterOfMass(*self.out_surface))
+        self.vol_centre = np.array(factory.getCenterOfMass(*self.vol_tag))
+        self.in_centre = np.array(factory.getCenterOfMass(*self.in_surface))
+        self.out_centre = np.array(factory.getCenterOfMass(*self.out_surface))
 
     def _rotate_inlet(self, vol_tag, in_direction, out_direction):
         """
@@ -422,9 +422,9 @@ class PipePiece():
                 np.dot(in_direction, up_vector) /  # can replace
                 (np.linalg.norm(in_direction) * np.linalg.norm(up_vector))))
 
-            FACTORY.rotate([vol_tag], *[0, 0, 0], *list(rotate_axis),
+            factory.rotate([vol_tag], *[0, 0, 0], *list(rotate_axis),
                            rotate_angle)
-            FACTORY.synchronize()
+            factory.synchronize()
             rot_vec = rotate_angle * rotate_axis
             rot1 = Rotation.from_rotvec(rot_vec)
             new_out_direction = rot1.apply(out_direction)
@@ -470,8 +470,8 @@ class PipePiece():
         cross = np.cross(new_out_direction, out_direction)
         if np.dot(in_direction, cross) > 0:
             rot2_angle *= -1
-        FACTORY.rotate([vol_tag], *[0, 0, 0], *list(in_direction), -rot2_angle)
-        FACTORY.synchronize()
+        factory.rotate([vol_tag], *[0, 0, 0], *list(in_direction), -rot2_angle)
+        factory.synchronize()
 
 
 class Cylinder(PipePiece):
@@ -487,13 +487,13 @@ class Cylinder(PipePiece):
             radius: (float) radius of cylinder.
             direction: (list, length 3) xyz vector representing direction
                 cylinder is facing.
-            lcar: (float) MESH size for this piece.
+            lcar: (float) mesh size for this piece.
         """
         self.length = length
         self.lcar = lcar
-        vol_tag = (3, FACTORY.addCylinder(0, 0, 0, 0, 0, length, radius))
-        FACTORY.synchronize()
-        surfaces = MODEL.getBoundary([vol_tag], False)
+        vol_tag = (3, factory.addCylinder(0, 0, 0, 0, 0, length, radius))
+        factory.synchronize()
+        surfaces = model.getBoundary([vol_tag], False)
         in_surface = surfaces[2]  # these are switched
         out_surface = surfaces[1]
         direction = np.array(direction)
@@ -511,9 +511,9 @@ class Cylinder(PipePiece):
 
             if np.dot(rotation_axis, cross) > 0:
                 rotation_angle *= -1
-            FACTORY.rotate([vol_tag], 0, 0, length / 2, rotation_axis[0],
+            factory.rotate([vol_tag], 0, 0, length / 2, rotation_axis[0],
                            rotation_axis[1], rotation_axis[2], -rotation_angle)
-            FACTORY.synchronize()
+            factory.synchronize()
             out_direction = np.copy(direction)
             in_direction = np.copy(direction)
         else:
@@ -542,7 +542,7 @@ class Curve(PipePiece):
             bend_radius: (float) radius of the bend of the curve.
             lcar: (float) mesh size for this piece.
         """
-        in_tag = (2, FACTORY.addDisk(0, 0, 0, radius, radius))
+        in_tag = (2, factory.addDisk(0, 0, 0, radius, radius))
         in_direction = np.array(in_direction)
         out_direction = np.array(out_direction)
 
@@ -550,9 +550,9 @@ class Curve(PipePiece):
         centre_of_rotation = [bend_radius, 0, 0]
         angle = vec_angle(in_direction, out_direction)
         # Revolve in x plane, bend with radius bend_radius
-        revolve_tags = FACTORY.revolve([in_tag], *centre_of_rotation,
+        revolve_tags = factory.revolve([in_tag], *centre_of_rotation,
                                        *revolve_axis, angle)
-        FACTORY.synchronize()
+        factory.synchronize()
 
         vol_tag = revolve_tags[1]
 
@@ -566,13 +566,13 @@ class Curve(PipePiece):
         self._rotate_outlet(vol_tag, out_direction, in_direction,
                             new_out_direction)
 
-        surfaces = MODEL.getBoundary([vol_tag], False, True)
+        surfaces = model.getBoundary([vol_tag], False, True)
         out_tag = surfaces[2]
         in_tag = surfaces[1]
         super(Curve, self).__init__(radius, vol_tag, in_tag, out_tag,
                                     in_direction, out_direction)
 
-        # FACTORY.synchronize()
+        # factory.synchronize()
 
 
 class Mitered(PipePiece):
@@ -605,46 +605,46 @@ class Mitered(PipePiece):
         # Chamfer cylinder
         angle = vec_angle(out_direction, in_direction)
         height = 2.1 * radius * np.tan(angle / 2)
-        v2 = np.array([np.sin(np.pi - angle), 0, -np.cos(np.pi - angle)
+        new_out_direction = np.array([np.sin(np.pi - angle), 0, -np.cos(np.pi - angle)
                        ])  # original outlet direction in xz plane
-        cyl1 = (3, FACTORY.addCylinder(0, 0, 0, 0, 0, height,
+        cyl1 = (3, factory.addCylinder(0, 0, 0, 0, 0, height,
                                        radius))  # create cylinder
         box1 = (3,
-                FACTORY.addBox(-radius - 1, -radius, -1, 2 * radius + 1,
+                factory.addBox(-radius - 1, -radius, -1, 2 * radius + 1,
                                2 * radius, height + 1))  # create box
-        FACTORY.synchronize()
-        surface = MODEL.getBoundary([box1], False,
+        factory.synchronize()
+        surface = model.getBoundary([box1], False,
                                     False)[5]  # Top surface to chamfer from
-        line = MODEL.getBoundary([surface], False, False)[2]  # -x line on top
+        line = model.getBoundary([surface], False, False)[2]  # -x line on top
         sdist = 2 * radius * np.tan(
             angle / 2)  # distances to chamfer to get correct angle
         #ldist = 2*radius*np.cos(angle/2)
-        FACTORY.chamfer([box1[1]], [line[1]], [surface[1]],
+        factory.chamfer([box1[1]], [line[1]], [surface[1]],
                         [2 * radius, sdist])  # chamfer
-        int_tag = FACTORY.intersect([box1],
+        int_tag = factory.intersect([box1],
                                     [cyl1])  # intersect (chamfer on cylinder)
-        fuse = FACTORY.fuse([int_tag[0]], int_tag[1:])[0]  # fuse
-        fuse2 = FACTORY.copy([fuse])  # create copy and mirror
-        FACTORY.symmetrize([fuse2], 1, 0, 0, 0)
-        FACTORY.synchronize()
-        surface = MODEL.getBoundary([fuse2], False,
+        fuse = factory.fuse([int_tag[0]], int_tag[1:])[0]  # fuse
+        fuse2 = factory.copy([fuse])  # create copy and mirror
+        factory.symmetrize([fuse2], 1, 0, 0, 0)
+        factory.synchronize()
+        surface = model.getBoundary([fuse2], False,
                                     False)[1]  # get center of rotation
-        com = FACTORY.getCenterOfMass(*surface)
-        FACTORY.rotate([fuse2], *com, 0, 1, 0,
+        com = factory.getCenterOfMass(*surface)
+        factory.rotate([fuse2], *com, 0, 1, 0,
                        -(np.pi - angle))  # rotate to create piece
-        vol_tag = FACTORY.fuse([fuse], [fuse2],
+        vol_tag = factory.fuse([fuse], [fuse2],
                                removeObject=True,
                                removeTool=True)[0][0]  # fuse
-        FACTORY.synchronize()
+        factory.synchronize()
 
-        surfaces = MODEL.getBoundary([vol_tag], False)
+        surfaces = model.getBoundary([vol_tag], False)
         in_surface = surfaces[3]  # bottom
         out_surface = surfaces[6]  # angled
 
         # Rot1: rotate object so inlet faces correct direction
-        v2 = self._rotate_inlet(vol_tag, in_direction, v2)
+        new_out_direction = self._rotate_inlet(vol_tag, in_direction, new_out_direction)
         #Rot2
-        self._rotate_outlet(vol_tag, out_direction, in_direction, v2)
+        self._rotate_outlet(vol_tag, out_direction, in_direction, new_out_direction)
         super(Mitered, self).__init__(radius, vol_tag, in_surface, out_surface,
                                       in_direction, out_direction)
 
@@ -679,18 +679,18 @@ class TJunction(PipePiece):
         height = radius * np.tan(beta) + radius / np.cos(beta)
         # Calculating height needed to emerge from merge
 
-        in_tag = (3, FACTORY.addCylinder(0, 0, 0, 0, 0, 1.1 * height, radius))
-        mid_tag = (3, FACTORY.addCylinder(0, 0, 0, 1.1 * height, 0, 0, radius))
-        out_tag = (3, FACTORY.addCylinder(0, 0, 0, 0, 0, -1.1 * height,
+        in_tag = (3, factory.addCylinder(0, 0, 0, 0, 0, 1.1 * height, radius))
+        mid_tag = (3, factory.addCylinder(0, 0, 0, 1.1 * height, 0, 0, radius))
+        out_tag = (3, factory.addCylinder(0, 0, 0, 0, 0, -1.1 * height,
                                           radius))
-        FACTORY.rotate([mid_tag], 0, 0, 0, 0, 1, 0, rot_sign * beta)
-        FACTORY.synchronize()
+        factory.rotate([mid_tag], 0, 0, 0, 0, 1, 0, rot_sign * beta)
+        factory.synchronize()
 
-        vol_tags, out_dim_tag_map = FACTORY.fuse([in_tag], [mid_tag, out_tag])
+        vol_tags, out_dim_tag_map = factory.fuse([in_tag], [mid_tag, out_tag])
         vol_tag = vol_tags[0]
-        FACTORY.synchronize()
+        factory.synchronize()
 
-        surfaces = MODEL.getBoundary([vol_tag], False)
+        surfaces = model.getBoundary([vol_tag], False)
         in_surface = surfaces[5]  # 5 3
         out_surface = surfaces[3]
         self.mid_surface = surfaces[4]
@@ -702,7 +702,7 @@ class TJunction(PipePiece):
 
         self._rotate_outlet(vol_tag, t_direction, direction, mid_direction)
 
-        self.mid_centre = FACTORY.getCenterOfMass(2, surfaces[4][1])
+        self.mid_centre = factory.getCenterOfMass(2, surfaces[4][1])
 
         super(TJunction,
               self).__init__(radius, vol_tag, in_surface, out_surface,
@@ -710,7 +710,7 @@ class TJunction(PipePiece):
 
     def update_centres(self):
         """See base class. Updates T_centre too."""
-        self.vol_centre = np.array(FACTORY.getCenterOfMass(*self.vol_tag))
-        self.in_centre = np.array(FACTORY.getCenterOfMass(*self.in_surface))
-        self.out_centre = np.array(FACTORY.getCenterOfMass(*self.out_surface))
-        self.mid_centre = np.array(FACTORY.getCenterOfMass(*self.mid_surface))
+        self.vol_centre = np.array(factory.getCenterOfMass(*self.vol_tag))
+        self.in_centre = np.array(factory.getCenterOfMass(*self.in_surface))
+        self.out_centre = np.array(factory.getCenterOfMass(*self.out_surface))
+        self.mid_centre = np.array(factory.getCenterOfMass(*self.mid_surface))
