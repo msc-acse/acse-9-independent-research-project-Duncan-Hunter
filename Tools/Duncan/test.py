@@ -11,31 +11,52 @@ mesh = model.mesh
 
 gmsh.initialize()
 gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.2)
-# # gmsh.option.setNumber("General.Terminal", 1)
 gmsh.model.add("Example")
-
-
 
 """
 Uncomment for different example meshes
 Change filename
 """
-fname = "chicane"
-piece = pipes.Cylinder(1, 0.5, [1,0,0], 0.2)
+fname = "pipe"
+
+# Pieces available
+# piece = pipes.Cylinder(1, 0.5, [1,0,0], 0.2)
 # piece = pipes.Mitered(0.5, [-1,0,1], [-1,0,0], 0.2)
 # piece = pipes.Curve(0.5, [1,0,0], [0,1,0], 1, 0.2)
 # piece = pipes.T_junction(0.5, [1,0,0], [1,1,-1], 0.2)
 
-# network = pipes.Network(0.1, 0.5, [1,0,0], 0.2)
+# Create pipe with junctions
+# network = pipes.Network(0.2, 0.25, [0,0,-1], 0.1)
+# network.add_pipe(1, 0.1)
+# network.add_t_junction([-1,0,1], 0.1)
+# network.add_t_junction([1,0,1], 0.1)
+
+# network2 = pipes.Network(0.2, 0.25, [1,0,0], 0.1)
+# network2.add_pipe(3, 0.1)
+
+# network3 = pipes.Network(0.2, 0.25, [1,0,0], 0.1)
+# network3.add_pipe(3, 0.1)
+
+# network.add_network(network2, junction_number=1)
+# network.add_network(network3, junction_number=2)
+# network.fuse_objects()
+# network._set_mesh_sizes()
+
+# Recreate pipe from mpml file
+# network.add_curve([0,-1,0], 0.5, 0.2)
+# network.add_pipe(5, 0.2)
+# network.add_curve([0,0,-1],0.5,0.2)
+# network.add_pipe(10,0.2)
+# network.fuse_objects()
 
 # Chicane
 # network.add_pipe(1, 0.1)
-# network.add_curve([0, -1, 0], 1, 0.1)
-# network.add_pipe(0.5, 0.1)
-# network.add_curve([1, 0, 0], 2, 0.1)
+# network.add_curve([0, -1, 0], 1, 0.05)
+# network.add_pipe(0.5, 0.15)
+# network.add_curve([1, 1, 0], 2, 0.05)
 # network.add_pipe(4, 0.1)
 # network.fuse_objects()
-
+# network._set_mesh_sizes()
 
 # Junction
 # network.add_pipe(1, 0.2)
@@ -80,52 +101,22 @@ piece = pipes.Cylinder(1, 0.5, [1,0,0], 0.2)
 # network.add_pipe(1, 0.2)
 # network.fuse_objects()
 
-
-
-mesh.generate(3)
-# gmsh.write(fname + ".msh2")
-# os.rename(fname + ".msh2", fname + ".msh")
-gmsh.option.setNumber("Mesh.Binary", 1)
-
-gmsh.write(fname)
-
-gmsh.option.setNumber("General.Axes", 2)
-gmsh.option.setNumber("Mesh.SurfaceFaces", 1)
-gmsh.option.setNumber("Geometry.LabelType", 2)
-gmsh.option.setNumber("Geometry.SurfaceNumbers", 1)
-#model.setVisibility(model.getEntities(3),0)
-gmsh.fltk.run()
-gmsh.finalize()
-
 """
 Some notes
 """
-# Setting mesh size
 
-# stag = factory.addPoint(0, 0, 0, 0.2)
-# ftag = factory.addPoint(1, 0, 0, 0.2)
-# line = factory.addLine(stag, ftag)
-# factory.synchronize()
+mesh.generate(3)
 
-# field_tag = mesh.field.add("Distance")
+# gmsh.option.setNumber("Mesh.Binary", 1)
+# gmsh.option.setNumber("Mesh.CharacteristicLengthFromPoints", 1)
+# gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
 
-# Distance away from point(s)
-# mesh.field.setNumbers(field_tag, "NodesList", [stag])
-
-# Distance away from line
-#mesh.field.setNumber(field_tag, "NNodesByEdge", 100)
-#mesh.field.setNumbers(field_tag, "EdgesList", [line])
-
-# Threshold field
-# thresh_field = mesh.field.add("Threshold")
-# mesh.field.setNumber(thresh_field, "IField", 1)
-# mesh.field.setNumber(thresh_field, "LcMin", 0.05)
-# mesh.field.setNumber(thresh_field, "LcMax", 0.3)
-# mesh.field.setNumber(thresh_field, "DistMin", 0.3)
-# mesh.field.setNumber(thresh_field, "DistMax", 0.5)
-
-# mesh.field.setAsBackgroundMesh(thresh_field)
-#model.mesh.field.setNumbers(1, "EdgesList", line)
-#mesh.field.setNumbers
-
-# Using factory.remove gets rid of the effect
+# gmsh.write(fname + ".msh2")
+# os.rename(fname + ".msh2", fname + ".msh")
+gmsh.option.setNumber("General.Axes", 2)
+gmsh.option.setNumber("Mesh.SurfaceFaces", 1)
+# gmsh.option.setNumber("Geometry.LabelType", 2)
+# gmsh.option.setNumber("Geometry.SurfaceNumbers", 1)
+#model.setVisibility(model.getEntities(3),0)
+gmsh.fltk.run()
+gmsh.finalize()
