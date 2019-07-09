@@ -9,7 +9,8 @@ MESH = MODEL.mesh
 def vec_angle(vec1, vec2):
     """Returns the angle between two numpy array vectors"""
     return np.arccos(
-        (np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))))
+        np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
+        )
 
 
 def proj(vec1, vec2):
@@ -54,6 +55,8 @@ def _rotate_inlet(vol_tag, in_direction, out_direction):
         rot_vec = rotate_angle * rotate_axis
         rot1 = Rotation.from_rotvec(rot_vec)
         new_out_direction = rot1.apply(out_direction)
+    else:
+        new_out_direction = out_direction
     return new_out_direction
 
 def _rotate_outlet(vol_tag, out_direction, in_direction,
@@ -99,6 +102,13 @@ def _rotate_outlet(vol_tag, out_direction, in_direction,
         FACTORY.rotate([vol_tag], *[0, 0, 0], *list(in_direction), -rot2_angle)
         FACTORY.synchronize()
 
+class Surface():
+    def __init__(self, dimtag, centre, direction, radius):
+        self.dimtag = dimtag
+        self.centre = centre
+        self.direction = np.array(direction)
+        self.radius = radius
+
 class PipePiece():
     """Parent class of pieces.
 
@@ -108,12 +118,6 @@ class PipePiece():
     need to update centres of pieces after they have been transformed.
 
     """
-    class Surface():
-        def __init__(self, dimtag, centre, direction, radius):
-            self.dimtag = dimtag
-            self.centre = centre
-            self.direction = np.array(direction)
-            self.radius = radius
 
     def __init__(self, radius, vol_tag, in_tag, out_tag, in_direction,
                  out_direction, lcar):
@@ -132,18 +136,11 @@ class PipePiece():
         """
         self.lcar = lcar
         self.vol_tag = vol_tag
-        # self.in_surface = in_tag
-        # self.out_surface = out_tag
         self.vol_centre = np.array(FACTORY.getCenterOfMass(*vol_tag))
         in_centre = np.array(FACTORY.getCenterOfMass(*in_tag))
         out_centre = FACTORY.getCenterOfMass(*out_tag)
-        self.in_surface = PipePiece.Surface(in_tag, in_centre, in_direction, radius)
-        self.out_surface = PipePiece.Surface(out_tag, out_centre, out_direction, radius)
-
-    def update(self):
-        self.update_surfaces()
-        self.update_centres()
-        self.update_directions()
+        self.in_surface = Surface(in_tag, in_centre, in_direction, radius)
+        self.out_surface = Surface(out_tag, out_centre, out_direction, radius)
 
     def update_surfaces(self):
         """This isnt used, but could be for the whole thing"""
@@ -153,8 +150,8 @@ class PipePiece():
 
     def update_centres(self):
         """Updates centres of faces attributes of piece."""
+        self.update_surfaces()
         self.vol_centre = np.array(FACTORY.getCenterOfMass(*self.vol_tag))
-        print(self.in_surface)
         self.in_surface.centre = np.array(
             FACTORY.getCenterOfMass(*self.in_surface.dimtag)
             )
@@ -162,15 +159,23 @@ class PipePiece():
             FACTORY.getCenterOfMass(*self.out_surface.dimtag)
             )
 
-    def update_directions(self):  # needs a generated mesh
-        param = MESH.getNodes(*self.out_surface.dimtag, True)[2]
-        self.out_surface.direction = np.array(
-            MODEL.getNormal(self.out_surface.dimtag[1],param)[:3]
-            )
-        param = MESH.getNodes(*self.in_surface.dimtag, True)[2]
-        self.in_surface.direction = -np.array(
-            MODEL.getNormal(self.in_surface.dimtag[1],param)[:3]
-            )
+    def update_directions(self, axis, angle):  # needs a generated mesh
+        rotvec = Rotation.from_rotvec(angle*axis)
+        self.out_surface.direction = rotvec.apply(
+            self.out_surface.direction
+        )
+        self.in_surface.direction = rotvec.apply(
+            self.in_surface.direction
+        )
+        # param = MESH.getNodes(*self.out_surface.dimtag, True)[2]
+        # self.out_surface.direction = np.array(
+        #     MODEL.getNormal(self.out_surface.dimtag[1],param)[:3]
+        #     )
+
+        # param = MESH.getNodes(*self.in_surface.dimtag, True)[2]
+        # self.in_surface.direction = -np.array(
+        #     MODEL.getNormal(self.in_surface.dimtag[1],param)[:3]
+        #     )
 
 class Cylinder(PipePiece):
     """
@@ -192,20 +197,67 @@ class Cylinder(PipePiece):
         vol_tag = (3, FACTORY.addCylinder(0, 0, 0, 0, 0, length, radius))
         FACTORY.synchronize()
         surfaces = MODEL.getBoundary([vol_tag], False)
-        in_surface = surfaces[2]
-        out_surface = surfaces[1]
+        in_tag = surfaces[2]
+        out_tag = surfaces[1]
+
         direction = np.array(direction)
 
         _rotate_inlet(vol_tag, direction, direction)
 
         super(Cylinder,
-              self).__init__(radius, vol_tag, in_surface, out_surface,
+              self).__init__(radius, vol_tag, in_tag, out_tag,
                              direction, direction, lcar)
 
     def update_surfaces(self):
         surfaces = MODEL.getBoundary([self.vol_tag], combined=False)
         self.in_surface.dimtag = surfaces[2]
         self.out_surface.dimtag = surfaces[1]
+
+class ChangeRadius(PipePiece):
+    """Class representing change in radius"""
+    def __init__(self, length, change_length, in_radius, out_radius,
+                 direction, lcar):
+        if change_length >= length:
+            raise ValueError('change_length must be less than length')
+        if change_length < 0:
+            raise ValueError('change_length must be greater than 0')
+        if out_radius > in_radius:
+            vol_tag = (3, FACTORY.addCylinder(0,0,0,0,0,length,out_radius))
+        else:
+            vol_tag = (3, FACTORY.addCylinder(0,0,0,0,0,length,in_radius))
+        FACTORY.synchronize()
+        surfaces = MODEL.getBoundary([vol_tag], False)
+        in_tag = surfaces[2]
+        out_tag = surfaces[1]
+
+        if out_radius > in_radius:
+            lines = MODEL.getBoundary([in_tag], False, False)
+            FACTORY.chamfer([vol_tag[1]], [lines[0][1]],
+                            [in_tag[1]],
+                            [out_radius - in_radius, change_length])
+            FACTORY.synchronize()
+        else:
+            lines = MODEL.getBoundary(out_tag, False, False)
+            FACTORY.chamfer([vol_tag[1]], [lines[0][1]],
+                            [out_tag[1]],
+                            [in_radius - out_radius, change_length])
+            FACTORY.synchronize()
+
+        direction = np.array(direction)
+
+        _rotate_inlet(vol_tag, direction, direction)
+
+        surfaces = MODEL.getBoundary([vol_tag], False)
+        in_tag = surfaces[2]
+        out_tag = surfaces[3]
+
+        super(ChangeRadius, self).__init__(out_radius, vol_tag, in_tag, out_tag,
+                                        direction, direction, lcar)
+
+    def update_surfaces(self):
+        surfaces = MODEL.getBoundary([self.vol_tag], combined=False)
+        self.in_surface.dimtag = surfaces[2]
+        self.out_surface.dimtag = surfaces[3]
 
 class Curve(PipePiece):
     """Class representing a GMSH curve by revolution."""
@@ -338,6 +390,8 @@ class Mitered(PipePiece):
         self.in_surface.dimtag = surfaces[3]
         self.out_surface.dimtag = surfaces[6]
 
+
+
 class TJunction(PipePiece):
     """Class representing a T-junction in GMSH"""
 
@@ -356,7 +410,8 @@ class TJunction(PipePiece):
         """
         self.out_num = 2
         direction = np.array(direction)
-        t_angle = vec_angle(direction, self.t_direction)
+        t_direction = np.array(t_direction)
+        t_angle = vec_angle(direction, t_direction)
         if t_angle < np.pi / 2:
             rot_sign = -1
             beta = np.pi / 2 - abs(t_angle)
@@ -374,7 +429,7 @@ class TJunction(PipePiece):
         FACTORY.rotate([mid_tag], 0, 0, 0, 0, 1, 0, rot_sign * beta)
         FACTORY.synchronize()
 
-        vol_tags, out_dim_tag_map = FACTORY.fuse([in_tag], [mid_tag, out_tag])
+        vol_tags = FACTORY.fuse([in_tag], [mid_tag, out_tag])[0]
         vol_tag = vol_tags[0]
         FACTORY.synchronize()
 
@@ -383,20 +438,18 @@ class TJunction(PipePiece):
         out_surface = surfaces[3]
         t_tag = surfaces[4]
 
-        # These are temporary
-        mid_direction = np.array([1, 0, 0])
+        mid_direction = np.array([1, 0, 0])  # t auto direction
         mid_direction = _rotate_inlet(vol_tag, direction, mid_direction)
         out_direction = np.copy(direction)
         t_centre = FACTORY.getCenterOfMass(2, surfaces[4][1])
 
         _rotate_outlet(vol_tag, t_direction, direction, mid_direction)
 
-
         super(TJunction,
               self).__init__(radius, vol_tag, in_surface, out_surface,
                              out_direction, out_direction, lcar)
 
-        self.t_surface = PipePiece.Surface(t_tag, t_centre, t_direction, radius)
+        self.t_surface = Surface(t_tag, t_centre, t_direction, radius)
 
     def update_surfaces(self):
         surfaces = MODEL.getBoundary([self.vol_tag], combined=False)

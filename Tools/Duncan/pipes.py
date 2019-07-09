@@ -2,27 +2,17 @@
 Create pipes and improve this docstring.
 
 Bugs:
-    - There will be some.
 
 Todo
-    - Continue update of Surface class
-    - Update how we add pieces
-    - Aim is to be able to build from junctions.
-
-
-
     - mesh size of pieces after fuse
         Update: Basic version working - lots of bugs still
         to fix.
         Overall pipe mesh size
-        Apply to all networks joined.
     - Junctions
         Make side without junction smaller.
-        Be able to build from junctions, therefore knowing what direction
-        you're going in.
     - Docstrings
     - Physical groups
-        Need to deal with excess outflows or inflows
+        Need to deal with excess inflows (use out_surfaces?)
     - Testing
         Test case with ICFERST
     - Standardize variable names
@@ -36,6 +26,11 @@ MODEL = gmsh.model
 FACTORY = MODEL.occ
 MESH = MODEL.mesh
 #gmsh.option.setNumber("General.Terminal", 1)
+
+def round_0(values):
+    values = np.array(values)
+    values[np.abs(values) < 1e-8] = 0
+    return values
 
 def vec_angle(vec1, vec2):
     """Returns the angle between two numpy array vectors"""
@@ -102,26 +97,21 @@ class Network():
         lcar: (float) Mesh size of this piece.
         """
         piece = pieces.Cylinder(length, radius, np.array(direction), lcar)
-        self.in_direction = np.array(direction)
-        # self.in_surface = piece.in_surface  # unsure of use
-        # self.in_centre = piece.in_centre
-        # self.direction = piece.out_direction  # direction of pipe
-        self.radius = radius
+        self.in_direction = np.array(direction)  # not sure I'll need this
+        self.radius = radius  # not sure i'll need this
 
         # self.out_centre = piece.out_centre
         self.piece_list = [piece]
         self.in_surfaces = [piece.in_surface]  # need to be careful with this
         self.out_surfaces = [piece.out_surface]
 
-        self.t_pieces = []  # for use when adding a pipe.
         self.networks = [self]  # for use when adding a pipe.
-        self.joined = False  # for use when adding a pipe.
+        # self.joined = False  # for use when adding a pipe.
 
         self.fused = False
         self.vol_tag = None  # Overall vol_tag, only created after fuse.
-        self._has_physical_groups = False
-        self.physical_in_surface = None
-        self.physical_out_surface = None
+        self.physical_in_out_surfaces = {}  # dictionary of physical dim tags
+        # to surface objects, which has information
         self.physical_no_slip = None
         self.physical_volume = None
 
@@ -150,21 +140,6 @@ class Network():
         MESH.field.setNumbers(min_field, "FieldsList", field_list)
         MESH.field.setAsBackgroundMesh(min_field)
 
-    def _update_pieces(self):
-        """
-        Add a piece to the pipe
-        Specify the type of piece and where to add it.
-        Use piece type to determine what piece. Give individual
-        functions the out_surface to determine where the out centre
-        and direction is.
-        Replace the out_surface with the new out piece.
-        """
-        # Update all pieces
-        # Update out pieces
-        # Update in pieces
-        for piece in self.piece_list:
-            piece.update()
-
     def _out_number(self, out_number):
         if out_number > len(self.out_surfaces):
             raise ValueError("Out piece does not exist")
@@ -184,11 +159,10 @@ class Network():
         out_number = self._out_number(out_number)
         out_surface = self.out_surfaces[out_number]
         piece = pieces.Cylinder(length, out_surface.radius, out_surface.direction, lcar)
-
         translate_vector = out_surface.centre - piece.in_surface.centre
         FACTORY.translate([piece.vol_tag], *list(translate_vector))
         FACTORY.synchronize()
-        piece.update()
+        piece.update_centres()
         self.piece_list.append(piece)
         self.out_surfaces[out_number] = piece.out_surface
 
@@ -241,14 +215,14 @@ class Network():
         """
         out_number = self._out_number(out_number)
         out_surface = self.out_surfaces[out_number]
-        piece = pieces.Mitered(out_surface.radius, out_surface.out_direction,
+        piece = pieces.Mitered(out_surface.radius, out_surface.direction,
                                new_direction, lcar)
-        translate_vector = out_surface.out_centre - piece.in_centre
+        translate_vector = out_surface.centre - piece.in_surface.centre
         FACTORY.translate([piece.vol_tag], *list(translate_vector))
         FACTORY.synchronize()
         piece.update_centres()
         self.piece_list.append(piece)
-        self.out_surfaces[out_number] = piece
+        self.out_surfaces[out_number] = piece.out_surface
 
     def add_change_radius(self, length, new_radius, change_length, lcar,
                           out_number=0):
@@ -274,29 +248,15 @@ class Network():
             raise ValueError('change_length must be less than length')
         if change_length < 0:
             raise ValueError('change_length must be greater than 0')
-        if new_radius > out_surface.radius:
-            piece = pieces.Cylinder(length, new_radius, out_surface.out_direction, lcar)
-        else:
-            piece = pieces.Cylinder(length, out_surface.radius, out_surface.out_direction, lcar)
-        translate_vector = out_surface.out_centre - piece.in_centre
+        piece = pieces.ChangeRadius(length, change_length,
+                                    out_surface.radius, new_radius,
+                                    out_surface.direction, lcar)
+        translate_vector = out_surface.centre - piece.in_surface.centre
         FACTORY.translate([piece.vol_tag], *list(translate_vector))
-        piece.update_centres()
         FACTORY.synchronize()
-        if new_radius > out_surface.radius:
-            lines = MODEL.getBoundary([piece.in_surface], False, False)
-            FACTORY.chamfer([piece.vol_tag[1]], [lines[0][1]],
-                            [piece.in_surface[1]],
-                            [new_radius - out_surface.radius, change_length])
-            FACTORY.synchronize()
-        elif new_radius < out_surface.radius:
-            lines = MODEL.getBoundary(piece.out_surface, False, False)
-            FACTORY.chamfer([piece.vol_tag[1]], [lines[0][1]],
-                            [piece.out_surface[1]],
-                            [out_surface.radius - new_radius, change_length])
-            FACTORY.synchronize()
-        piece.radius = new_radius
+        piece.update_centres()
         self.piece_list.append(piece)
-        self.out_surfaces[out_number] = piece
+        self.out_surfaces[out_number] = piece.out_surface
 
     def add_t_junction(self, t_direction, lcar, out_number=0):
         """Adds a T junction to the Network at the outlet.
@@ -309,26 +269,25 @@ class Network():
                 that the joining pipe's inlet is facing.
         """
         out_number = self._out_number(out_number)
-        out_surface = self.out_surfaces
-        piece = pieces.TJunction(self.radius, self.direction, t_direction, lcar)
-        translate_vector = self.out_centre - piece.in_centre
+        out_surface = self.out_surfaces[out_number]
+        piece = pieces.TJunction(out_surface.radius, out_surface.direction, t_direction, lcar)
+        translate_vector = out_surface.centre - piece.in_surface.centre
         FACTORY.translate([piece.vol_tag], *list(translate_vector))
-        piece.update_centres()
         FACTORY.synchronize()
-        self.t_pieces.append(piece)
+        piece.update_centres()
         self.piece_list.append(piece)
-        self._update_properties()
+        self.out_surfaces.append(piece.t_surface)
+        self.out_surfaces[out_number] = piece.out_surface
 
-    def fuse_objects(self):
+    def _fuse_objects(self):
         #fuse_tool = self.entities[0]
         """Fuses separate objects in Network together.
 
-        Finds out which surface is inflow/outflow using norms.
-        Updates inflow_tag, outflow_tag. Creates the physical
-        surfaces needed for ICFERST.
+        Returns the dimtags of in and out surfaces.
         """
+        if self.vol_tag:
+            raise ValueError("Network already fused")
         vol_tags = [piece.vol_tag for piece in self.piece_list]
-        # out_dim_tags = FACTORY.fuse([self.entities[0]], self.entities[1:])[0]
         out_dim_tags = FACTORY.fuse([vol_tags[0]], vol_tags[1:])[0]
         FACTORY.synchronize()
         self.vol_tag = out_dim_tags[0]
@@ -336,6 +295,8 @@ class Network():
             piece.vol_tag = None
         surfaces = MODEL.getBoundary([self.vol_tag], False)
         n_surfaces = len(surfaces)
+
+        # Dimtags have changed
         planes = [
             surfaces[i] for i in range(n_surfaces)
             if MODEL.getType(*surfaces[i]) == "Plane"
@@ -344,50 +305,45 @@ class Network():
             surfaces[i] for i in range(n_surfaces)
             if MODEL.getType(*surfaces[i]) != "Plane"
         ]
-        no_slip_tags = [dimtag[1] for dimtag in no_slip]
-        found_in = False  # being extra safe
-        found_out = False
-        # Find in surface. use np.isclose
+        # Iterate through planes
         for dim, tag in planes:
+            added = False
             loc = np.array(FACTORY.getCenterOfMass(dim, tag))
-            if np.allclose(loc, self.in_centre) and not found_in:
-                self.in_surface = (dim, tag)
-                found_in = True
-            elif np.allclose(loc, self.out_centre) and not found_out:
-                self.out_surface = (dim, tag)
-                self.out_centre = loc
-                found_out = True
+            # Iterate over in surfaces
+            for surf in self.in_surfaces:
+                # If it is an in surface, add it.
+                if np.allclose(loc, surf.centre):
+                    surf.dimtag = (dim, tag)
+                    added = True  # skip extra iterations
+            # If it is an out surface, add it.
+            if not added:
+                for surf in self.out_surfaces:
+                    if np.allclose(loc, surf.centre):
+                        surf.dimtag = (dim, tag)
+        return no_slip
 
-        if self._has_physical_groups:
-            MODEL.removePhysicalGroups()
-
-        self.physical_in_surface = MODEL.addPhysicalGroup(
-            2, [self.in_surface[1]])
-        self.physical_out_surface = MODEL.addPhysicalGroup(
-            2, [self.out_surface[1]])
+    def set_physical_groups(self):
+        """Use fused to create physical groups"""
+        no_slip = self._fuse_objects()
+        no_slip_tags = [tag[1] for tag in no_slip]
         self.physical_no_slip = MODEL.addPhysicalGroup(2, no_slip_tags)
+        for surf in (self.out_surfaces + self.in_surfaces):
+            phys_tag = MODEL.addPhysicalGroup(2, [surf.dimtag[1]])
+            self.physical_in_out_surfaces[phys_tag] = surf
         self.physical_volume = MODEL.addPhysicalGroup(3, [self.vol_tag[1]])
-        self._has_physical_groups = True
-        # Could init a PipePiece here.
-        piece = PipePiece(self.radius, self.vol_tag, self.in_surface,
-                          self.out_surface, self.in_direction,
-                          self.direction, 0.2)
-        # Uncertain this is the best thing to do
-        # self.piece_list = [piece]
 
-    def rotate_network(self, old_direction, new_direction):
+    def rotate_network(self, axis, angle):
         """Rotates the network from old_direction to new_direction."""
-        old_direction = np.array(old_direction)
-        new_direction = np.array(new_direction)
-        rot_angle = vec_angle(old_direction, new_direction)
-        rot_axis = np.cross(old_direction, new_direction)
+        rot_axis = np.array(axis)
         dimtags = []
         for network in self.networks:
             for piece in network.piece_list:
                 dimtags.append(piece.vol_tag)
-        FACTORY.rotate(dimtags, 0, 0, 0, *list(rot_axis), rot_angle)
+        FACTORY.rotate(dimtags, 0, 0, 0, *list(rot_axis), angle)
         FACTORY.synchronize()
-        self._update_networks()
+        for piece in self.piece_list:
+            piece.update_centres()
+            piece.update_directions(rot_axis, angle)
 
     def translate_network(self, vector):
         vector = np.array(vector)
@@ -397,44 +353,13 @@ class Network():
                 dimtags.append(piece.vol_tag)
         FACTORY.translate(dimtags, *list(vector))
         FACTORY.synchronize()
-        self._update_networks()
+        for piece in self.piece_list:
+            piece.update_centres()
 
-    def _update_networks(self):
-        MESH.generate(3)
-        for network in self.networks:
-            for piece in network.piece_list:
-                piece.update()  # updates locations
-            network._update_properties()  # updates out centre
-
-    def add_network(self, network, junction_number=-1):
-        """Adds a premade network to junction junction_number
-
-        If junction number is -1, then it adds to the first junction
-        face. Junctions are ordered in the order they are added, for
-        example if it is added first, its junction number is 1.
-        Find if junction number exists (raise ValueError)
-        rotate the new pipe so its outlet is facing the opposite to
-        the direction of the t_junction
-        translate the pipe
-
-        add networks to list of networks.
-        say that the joining network can't be added to (optional but will help)
-        add t_junctions in joining to this network.
-        """
-        print("We're working on it")
-        if junction_number > len(self.t_pieces):
-            raise ValueError("""Junction number is higher than number
-                             of junctions""")
-        if junction_number == 0:
-            raise ValueError("Can't use 0th junction")
-        if junction_number == -1:
-            junction_number = 1
-        t_piece = self.t_pieces[junction_number - 1]
-        t_direction = t_piece.t_direction
-        network.rotate_network(network.direction,
-                               -t_direction)
-        network._update_networks()
-        translate_vector =  t_piece.mid_centre - network.out_centre
-        network.translate_network(translate_vector)
-        network._update_networks()
-        self.networks += network.networks
+    def write_info(self, fname):
+        with open(fname, 'w') as myfile:
+            myfile.writelines("Physical Surface Number, centre, direction")
+            for key in self.physical_in_out_surfaces:
+                surf = self.physical_in_out_surfaces[key]
+                myfile.writelines("\n{}\t{}\t{}".format(key, round_0(surf.centre), round_0(surf.direction)))
+            myfile.close()
