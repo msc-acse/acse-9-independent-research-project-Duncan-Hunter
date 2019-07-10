@@ -2,7 +2,8 @@
 
 Also contains useful functions for these classes.
 """
-
+# pylint: disable=C0411
+# pylint: disable=R0913
 import gmsh
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -420,7 +421,7 @@ class Mitered(PipePiece):
 class TJunction(PipePiece):
     """Class representing a T-junction in GMSH"""
 
-    def __init__(self, radius, direction, t_direction, lcar):
+    def __init__(self, radius, t_radius, direction, t_direction, lcar):
         """Inits the piece
 
         Creates a piece with the t_direction facing in the x-plane and
@@ -428,13 +429,18 @@ class TJunction(PipePiece):
 
         Args:
             radius: (float) radius of the pipe.
+            t_radius: (float) radius of the joining pipe.
             direction: (list, length 3) xyz vector representing
                 direction going in.
             t_direction: (list, length 3) xyz vector represeting the
                 direction that the junction inlet faces.
+            lcar: (float) mesh size for this piece.
         """
+        if t_radius > radius:
+            raise ValueError("t_radius cannot be bigger than radius")
         direction = np.array(direction)
         t_angle = vec_angle(direction, t_direction)
+        # is t facing in or out of flow
         if t_angle < np.pi / 2:
             rot_sign = -1
             beta = np.pi / 2 - abs(t_angle)
@@ -443,11 +449,18 @@ class TJunction(PipePiece):
             beta = abs(t_angle) - np.pi / 2
 
         height = radius * np.tan(beta) + radius / np.cos(beta)
+        height_short = radius * abs(np.cos(beta))
+        if t_angle < np.pi / 2:
+            height_in = height
+            height_out = height_short
+        else:
+            height_in = height_short
+            height_out = height
         # Calculating height needed to emerge from merge
 
-        in_tag = (3, FACTORY.addCylinder(0, 0, 0, 0, 0, 1.1 * height, radius))
-        mid_tag = (3, FACTORY.addCylinder(0, 0, 0, 1.1 * height, 0, 0, radius))
-        out_tag = (3, FACTORY.addCylinder(0, 0, 0, 0, 0, -1.1 * height,
+        in_tag = (3, FACTORY.addCylinder(0, 0, 0, 0, 0, 1.1 * height_in, radius))
+        mid_tag = (3, FACTORY.addCylinder(0, 0, 0, 1.1 * height, 0, 0, t_radius))
+        out_tag = (3, FACTORY.addCylinder(0, 0, 0, 0, 0, -1.1 * height_out,
                                           radius))
         FACTORY.rotate([mid_tag], 0, 0, 0, 0, 1, 0, rot_sign * beta)
         FACTORY.synchronize()
@@ -472,7 +485,7 @@ class TJunction(PipePiece):
               self).__init__(radius, vol_tag, in_surface, out_surface,
                              out_direction, out_direction, lcar)
 
-        self.t_surface = Surface(t_tag, t_centre, t_direction, radius)
+        self.t_surface = Surface(t_tag, t_centre, t_direction, t_radius)
 
     def update_surfaces(self):
         """See base class."""
@@ -491,14 +504,8 @@ class TJunction(PipePiece):
         self.t_surface.centre = np.array(
             FACTORY.getCenterOfMass(*self.t_surface.dimtag))
 
-    def update_directions(self):
+    def update_directions(self, axis, angle):
         """See base class."""
-        param = MESH.getNodes(*self.out_surface.dimtag)[2]
-        self.out_surface.direction = MODEL.getNormal(
-            self.out_surface.dimtag[1], param)[0]
-        param = MESH.getNodes(*self.in_surface.dimtag)[2]
-        self.in_surface.direction = MODEL.getNormal(self.in_surface.dimtag[1],
-                                                    param)[0]
-        param = MESH.getNodes(*self.t_surface.dimtag)[2]
-        self.t_surface.direction = MODEL.getNormal(self.t_surface.dimtag[1],
-                                                   param)[0]
+        self.out_surface.update_direction(axis, angle)
+        self.in_surface.update_direction(axis, angle)
+        self.t_surface.update_direction(axis, angle)

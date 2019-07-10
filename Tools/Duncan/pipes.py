@@ -1,17 +1,13 @@
 """
-Create pipes and improve this docstring.
+Create pipes and pipe networks using the Network class.
 
 Bugs:
 
 Todo
-    - Junctions
-        Make side without junction smaller.
-    - Docstrings
-    - Update documentation
-    - Standardize variable names
     - Physical groups
-        Need to deal with excess inflows (use out_surfaces?)
+        Could be a bit neater. Improve write function
     - Testing
+        Test case mesh info (e.g. no of nodes, faces, physical groups)
         Test case with ICFERST
 """
 import gmsh
@@ -29,23 +25,6 @@ def round_0(values):
     values = np.array(values)
     values[np.abs(values) < 1e-8] = 0
     return values
-
-
-def vec_angle(vec1, vec2):
-    """Returns the angle between two numpy array vectors"""
-    norms = np.linalg.norm(vec1) * np.linalg.norm(vec2)
-    return np.arccos((np.dot(vec1, vec2) / norms))
-
-
-def proj(vec1, vec2):
-    """
-    Returns the component of vec1 along vec2
-
-    Args:
-        vec1, vec2: (np.array shape 3) xyz vector.
-    """
-    return np.dot(vec1, vec2) / np.linalg.norm(vec2)
-
 
 def check_intersect(objects, tools):
     """
@@ -276,7 +255,7 @@ class Network():
         self.piece_list.append(piece)
         self.out_surfaces[out_number] = piece.out_surface
 
-    def add_t_junction(self, t_direction, lcar, out_number=0):
+    def add_t_junction(self, t_direction, lcar, t_radius=-1, out_number=0):
         """Adds a T junction to the Network at the outlet.
 
         This represents a pipe joining this pipe, creating a place to
@@ -285,12 +264,20 @@ class Network():
         Args:
             t_direction: (list, length 3) representing the direction
                 that the joining pipe's inlet is facing.
+            lcar: (float) mesh size for this piece.
+            t_radius: radius of the piece joining the pipe. If <= 0, will
+                default to radius of the pipe.
             out_number: Out surface to add to. If <= 1, will add to the
                 first out surface.
         """
+
         out_number = self._out_number(out_number)
         out_surface = self.out_surfaces[out_number]
-        piece = pieces.TJunction(out_surface.radius, out_surface.direction,
+
+        if t_radius <= 0:
+            t_radius = out_surface.radius
+
+        piece = pieces.TJunction(out_surface.radius, t_radius, out_surface.direction,
                                  t_direction, lcar)
         translate_vector = out_surface.centre - piece.in_surface.centre
         FACTORY.translate([piece.vol_tag], *list(translate_vector))
