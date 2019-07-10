@@ -1,4 +1,13 @@
-# Tools that use the GMSH Python API
+# GMSH Pipes
+These tools use the GMSH-SDK (or GMSH API), available [here](http://gmsh.info/), but also uploaded here as *gmsh.py* and *libgmsh.so*.
+
+## Installation
+At the moment - just clone the repo and go to town on the following files:
+
+### pieces.py
+Contains classes (and some useful functions for said classes) which represent cylindrical GMSH objects. The classes store information of the object, such as the centre and direction of its faces, as well as functions to update the information when transformations are applied to them. This makes the information a little easier to access than using just the GMSH API. The available pieces are:
+
+![cylinder][https://github.com/ImperialCollegeLondon/icferst_ACSE-IRP/blob/Duncan/Tools/Duncan/images/cylinder.png]
 
 ### Create classes that create GMSH objects and store information. 
 e.g. cylinders, boxes. 
@@ -39,6 +48,6 @@ Create a 'Network' (name still on for decision).
 Join Networks at junctions
 
 ### Requirements for pipes.py:
-- libgmsh.so, from the GMSH SDK, available [here](http://gmsh.info/)
+- libgmsh.so, from the GMSH SDK, 
 - numpy
 - time to understand how it works, and deal with bugs, as it is incredibly raw
