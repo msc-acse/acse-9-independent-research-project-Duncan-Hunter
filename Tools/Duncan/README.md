@@ -33,19 +33,19 @@ piece = pieces.ChangeRadius(2, 1.8, 0.3, 0.2, [1 ,0, 0], 0.1)
 # length, change length, start radius, end radius, direction, mesh size
 ```
 * Smooth bends
-![bend](images/bend2.png)
+![bend](images/bend.png)
 ```python
 piece = pieces.Curve(0.5, [1,0,-1], [0,1,0], 1, 0.2)
 # radius of cylinder, in direction, out direction, bend radius, mesh size
 ```
 * Mitered bends
-![mitered](images/mitered2.png)
+![mitered](images/mitered.png)
 ```python
 piece = pieces.Mitered(0.5, [0, 1, 0], [1, 0, 0], 0.2)
 # radius of cylinder, in direction, out direction, mesh size
 ```
 * T Junctions
-![t_junc](images/t_junction.png)
+![t_junc](images/t_junc.png)
 ```python
 piece = pieces.TJunction(0.5, [1, 0, 0], [1, 1, -1], 0.1)
 # radius, direction, t direction, mesh size
