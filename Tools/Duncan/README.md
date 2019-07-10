@@ -41,7 +41,7 @@ piece = pieces.Curve(0.5, [1,0,-1], [0,1,0], 1, 0.2)
 piece = pieces.Mitered(0.5, [0, 1, 0], [1, 0, 0], 0.2)
 ```
 * T Junctions
-![t_junc](images/t_junction1.png)
+![t_junc](images/t_junction.png)
 ```python
 piece = pieces.TJunction(0.5, [1, 0, 0], [1, 1, -1], 0.1)
 ```
