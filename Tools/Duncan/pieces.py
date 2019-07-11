@@ -53,7 +53,6 @@ def _rotate_inlet(vol_tag, in_direction, out_direction):
             rotate_axis = np.array([1, 0, 0])
         rotate_axis = rotate_axis / np.linalg.norm(rotate_axis)
         rotate_angle = vec_angle(in_direction, up_vector)
-
         FACTORY.rotate([vol_tag], *[0, 0, 0], *list(rotate_axis), rotate_angle)
         FACTORY.synchronize()
         rot_vec = rotate_angle * rotate_axis
@@ -400,15 +399,15 @@ class Mitered(PipePiece):
         FACTORY.synchronize()
 
         surfaces = MODEL.getBoundary([vol_tag], False)
-        in_surface = surfaces[3]  # bottom
-        out_surface = surfaces[6]  # angled
+        in_tag = surfaces[3]  # bottom
+        out_tag = surfaces[6]  # angled
 
         # Rot1: rotate object so inlet faces correct direction
         new_out_direction = _rotate_inlet(vol_tag, in_direction,
                                           new_out_direction)
         #Rot2
         _rotate_outlet(vol_tag, out_direction, in_direction, new_out_direction)
-        super(Mitered, self).__init__(radius, vol_tag, in_surface, out_surface,
+        super(Mitered, self).__init__(radius, vol_tag, in_tag, out_tag,
                                       in_direction, out_direction, lcar)
 
     def update_surfaces(self):
@@ -440,29 +439,23 @@ class TJunction(PipePiece):
             raise ValueError("t_radius cannot be bigger than radius")
         direction = np.array(direction)
         t_angle = vec_angle(direction, t_direction)
-        # is t facing in or out of flow
-        if t_angle < np.pi / 2:
-            rot_sign = -1
-            beta = np.pi / 2 - abs(t_angle)
-        else:
-            rot_sign = 1
+        if t_angle > np.pi/2:
+            self.inv_surfs = True
             beta = abs(t_angle) - np.pi / 2
+        else:
+            self.inv_surfs = False
+            beta = np.pi / 2 - abs(t_angle)
 
         height = radius * np.tan(beta) + radius / np.cos(beta)
         height_short = radius * abs(np.cos(beta))
-        if t_angle < np.pi / 2:
-            height_in = height
-            height_out = height_short
-        else:
-            height_in = height_short
-            height_out = height
         # Calculating height needed to emerge from merge
 
-        in_tag = (3, FACTORY.addCylinder(0, 0, 0, 0, 0, 1.1 * height_in, radius))
+        in_tag = (3, FACTORY.addCylinder(0, 0, 0, 0, 0, 1.1 * height, radius))
         mid_tag = (3, FACTORY.addCylinder(0, 0, 0, 1.1 * height, 0, 0, t_radius))
-        out_tag = (3, FACTORY.addCylinder(0, 0, 0, 0, 0, -1.1 * height_out,
+        out_tag = (3, FACTORY.addCylinder(0, 0, 0, 0, 0, -1.1 * height_short,
                                           radius))
-        FACTORY.rotate([mid_tag], 0, 0, 0, 0, 1, 0, rot_sign * beta)
+
+        FACTORY.rotate([mid_tag], 0, 0, 0, 0, 1, 0, -beta)
         FACTORY.synchronize()
 
         vol_tags = FACTORY.fuse([in_tag], [mid_tag, out_tag])[0]
@@ -470,28 +463,39 @@ class TJunction(PipePiece):
         FACTORY.synchronize()
 
         surfaces = MODEL.getBoundary([vol_tag], False)
-        in_surface = surfaces[5]  # 5 3
-        out_surface = surfaces[3]
-        t_tag = surfaces[4]
 
-        mid_direction = np.array([1, 0, 0])  # t auto direction
+        if self.inv_surfs:
+            FACTORY.rotate([vol_tag], 0,0,0, 1, 0, 0, np.pi)
+            FACTORY.synchronize()
+            mid_direction = np.array([np.cos(beta),0,-np.sin(beta)])
+            in_tag = surfaces[3]
+            out_tag = surfaces[5]
+        else:
+            mid_direction = np.array([np.cos(beta),0,np.sin(beta)])
+            in_tag = surfaces[5]
+            out_tag = surfaces[3]
+        t_tag = surfaces[4]
+        t_centre = FACTORY.getCenterOfMass(2, t_tag[1])
+
         mid_direction = _rotate_inlet(vol_tag, direction, mid_direction)
-        out_direction = np.copy(direction)
-        t_centre = FACTORY.getCenterOfMass(2, surfaces[4][1])
 
         _rotate_outlet(vol_tag, t_direction, direction, mid_direction)
 
         super(TJunction,
-              self).__init__(radius, vol_tag, in_surface, out_surface,
-                             out_direction, out_direction, lcar)
+              self).__init__(radius, vol_tag, in_tag, out_tag,
+                             direction, direction, lcar)
 
         self.t_surface = Surface(t_tag, t_centre, t_direction, t_radius)
 
     def update_surfaces(self):
         """See base class."""
         surfaces = MODEL.getBoundary([self.vol_tag], combined=False)
-        self.in_surface.dimtag = surfaces[5]
-        self.out_surface.dimtag = surfaces[3]
+        if self.inv_surfs:
+            self.in_surface.dimtag = surfaces[3]
+            self.out_surface.dimtag = surfaces[5]
+        else:
+            self.in_surface.dimtag = surfaces[5]
+            self.out_surface.dimtag = surfaces[3]
         self.t_surface.dimtag = surfaces[4]
 
     def update_centres(self):
