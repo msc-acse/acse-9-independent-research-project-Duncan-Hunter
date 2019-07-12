@@ -11,6 +11,7 @@ Todo
         Test case with ICFERST
 """
 import gmsh
+import os
 import numpy as np
 import pieces
 
@@ -87,6 +88,9 @@ class Network():
             vector format.
         lcar: (float) Mesh size of this piece.
         """
+        gmsh.initialize()
+        gmsh.option.setNumber("Mesh.CharacteristicLengthMax", lcar)
+
         direction = np.array(direction)
         piece = pieces.Cylinder(length, radius, direction, lcar)
 
@@ -303,32 +307,29 @@ class Network():
         for piece in self.piece_list:
             piece.vol_tag = None
         surfaces = MODEL.getBoundary([self.vol_tag], False)
-        n_surfaces = len(surfaces)
-
-        # Dimtags have changed
-        planes = [
-            surfaces[i] for i in range(n_surfaces)
-            if MODEL.getType(*surfaces[i]) == "Plane"
-        ]
-        no_slip = [
-            surfaces[i] for i in range(n_surfaces)
-            if MODEL.getType(*surfaces[i]) != "Plane"
-        ]
-        # Iterate through planes
-        for dim, tag in planes:
+        tot_in = len(self.in_surfaces)
+        tot_out = len(self.out_surfaces)
+        found_in = 0
+        found_out = 0
+        no_slip = []
+        print(len(surfaces))
+        for surf in surfaces:
             added = False
-            loc = np.array(FACTORY.getCenterOfMass(dim, tag))
-            # Iterate over in surfaces
-            for surf in self.in_surfaces:
-                # If it is an in surface, add it.
-                if np.allclose(loc, surf.centre):
-                    surf.dimtag = (dim, tag)
-                    added = True  # skip extra iterations
-            # If it is an out surface, add it.
+            loc = np.array(FACTORY.getCenterOfMass(*surf))
+            if found_in < tot_in:
+                for in_surf in self.in_surfaces:
+                    if np.allclose(loc, in_surf.centre):
+                        in_surf.dimtag = surf
+                        found_in += 1
+                        added = True
+            if found_out < tot_out and not added:
+                for out_surf in self.out_surfaces:
+                    if np.allclose(loc, out_surf.centre):
+                        out_surf.dimtag = surf
+                        found_out += 1
+                        added = True
             if not added:
-                for surf in self.out_surfaces:
-                    if np.allclose(loc, surf.centre):
-                        surf.dimtag = (dim, tag)
+                no_slip.append(surf)
         return no_slip
 
     def set_physical_groups(self):
@@ -379,7 +380,28 @@ class Network():
         for piece in self.piece_list:
             piece.update_centres()
 
-    def write_info(self, fname):
+    def generate(self, filename=None, binary=False, mesh_format='msh2',
+                 write_info=False, run_gui=False):
+        """Generates mesh and saves if filename."""
+        self._set_mesh_sizes()
+        self.set_physical_groups()
+
+        MESH.generate(3)
+        if filename:
+            if binary:
+                gmsh.option.setNumber("Mesh.Binary", 1)
+            name = filename + "." + mesh_format
+            gmsh.write(name)
+            os.rename(name, filename + ".msh")
+        if write_info:
+            self._write_info(filename + ".txt")
+        if run_gui:
+            gmsh.option.setNumber("General.Axes", 2)
+            gmsh.option.setNumber("Mesh.SurfaceFaces", 1)
+            gmsh.fltk.run()
+        gmsh.finalize()
+
+    def _write_info(self, fname):
         """Writes network info into file fname."""
 
         with open(fname, 'w') as myfile:
