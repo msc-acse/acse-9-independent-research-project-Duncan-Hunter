@@ -13,6 +13,7 @@ Todo
 import wrapper.gmsh as gmsh
 import os
 import numpy as np
+import xml.etree.ElementTree as ET
 import wrapper.pieces as pieces
 
 MODEL = gmsh.model
@@ -93,6 +94,7 @@ class Network():
 
         direction = np.array(direction)
         piece = pieces.Cylinder(length, radius, direction, lcar)
+        piece.in_surface.direction *= -1
 
         self.piece_list = [piece]
         self.in_surfaces = [piece.in_surface]
@@ -102,7 +104,7 @@ class Network():
         # dictionary of physical dim tags
         # to surface objects, which has information
         self.physical_in_out_surfaces = {}
-        self.physical_no_slip = None
+        self.physical_no_slip = {}
         self.physical_volume = None
 
     def _set_mesh_sizes(self):
@@ -340,16 +342,24 @@ class Network():
     def set_physical_groups(self):
         """Sets the physical groups of the network.
 
-        Fuses the objects together, then creates the physical
-        surfaces which can be used by IC-FERST. The physical
-        surfaces for entrances are stored in a dictionary
-        containing Surface objects."""
+        Sets every surface to a physical surface, and the volume
+        to a physical volume."""
         no_slip = self._fuse_objects()
-        no_slip_tags = [tag[1] for tag in no_slip]
-        self.physical_no_slip = MODEL.addPhysicalGroup(2, no_slip_tags)
-        for surf in self.out_surfaces + self.in_surfaces:
-            phys_tag = MODEL.addPhysicalGroup(2, [surf.dimtag[1]])
-            self.physical_in_out_surfaces[phys_tag] = surf
+        # put these into class attribute. Dictionary mapping dimtag to physical.
+        # In surfaces as dictionary mapping dimtag to physical.
+        # Out surfaces as dictionary mapping dimtag to physical. or vice versa
+        # Then information about physical tag can be stored.
+        # self.physical_no_slip = [tag[1] for tag in no_slip]
+        for dimtag in no_slip:
+            phys_tag = MODEL.addPhysicalGroup(2, [dimtag[1]])
+            self.physical_no_slip[phys_tag] = dimtag
+        for surface in self.in_surfaces + self.out_surfaces:
+            phys_tag = MODEL.addPhysicalGroup(2, [surface.dimtag[1]])
+            self.physical_in_out_surfaces[phys_tag] = surface
+        # self.physical_no_slip = MODEL.addPhysicalGroup(2, no_slip_tags)
+        # for surf in self.out_surfaces + self.in_surfaces:
+        #     phys_tag = MODEL.addPhysicalGroup(2, [surf.dimtag[1]])
+        #     self.physical_in_out_surfaces[phys_tag] = surf
         self.physical_volume = MODEL.addPhysicalGroup(3, [self.vol_tag[1]])
 
     def rotate_network(self, axis, angle):
@@ -386,7 +396,7 @@ class Network():
             piece.update_centres()
 
     def generate(self, filename=None, binary=False, mesh_format='msh2',
-                 write_info=False, run_gui=False):
+                 write_info=False, write_xml=False, run_gui=False):
         """Generates mesh and saves if filename."""
         self._set_mesh_sizes()
         self.set_physical_groups()
@@ -400,6 +410,8 @@ class Network():
             os.rename(name, filename + ".msh")
         if write_info:
             self._write_info(filename + ".txt")
+        if write_xml:
+            self._write_xml(filename)
         if run_gui:
             gmsh.option.setNumber("General.Axes", 2)
             gmsh.option.setNumber("Mesh.SurfaceFaces", 1)
@@ -407,12 +419,40 @@ class Network():
         gmsh.finalize()
 
     def _write_info(self, fname):
-        """Writes network info into file fname."""
+        """Writes network info into file fname.
 
+        Potentially changed to xml or csv. Write in/out surfaces as normals.
+        (reverse in surface).
+        Then write cylinder info."""
         with open(fname, 'w') as myfile:
-            myfile.writelines("Physical Surface Number, centre, direction")
-            for key in self.physical_in_out_surfaces:
-                surf = self.physical_in_out_surfaces[key]
+            myfile.writelines("PhySurf, centre, outward direction")
+            myfile.writelines("\nInOut Surfaces")
+            for key, surf in self.physical_in_out_surfaces.items():
                 myfile.writelines("\n{}\t{}\t{}".format(
                     key, round_0(surf.centre), round_0(surf.direction)))
+            myfile.writelines("\nCylinder Surfaces")
+            for key, dimtag in self.physical_no_slip.items():
+                myfile.writelines(f"\n{key}\t{FACTORY.getCenterOfMass(2, dimtag[1])}")
             myfile.close()
+
+    def _write_xml(self, fname):
+        root = ET.Element('root')
+        inlet_surfs = ET.SubElement(root, "inlet_surfaces")
+        for key, surf in self.physical_in_out_surfaces.items():
+            surf = ET.SubElement(inlet_surfs, f"{key}",attrib={
+                "centre":np.array2string(np.array(surf.centre)),
+                "outward_direction":np.array2string(
+                    np.array(surf.direction)
+                    )
+            })
+        cyl_surfs = ET.SubElement(root, "cylinder_surfaces")
+        for key, dimtag in self.physical_no_slip.items():
+            centre = np.array2string(
+                np.array(FACTORY.getCenterOfMass(2, dimtag[1]))
+                )
+            surf = ET.SubElement(cyl_surfs, f"{key}", attrib={
+                "centre":centre
+            })
+        volume = ET.SubElement(root, "volume").text = str(self.vol_tag)
+        print(fname)
+        ET.ElementTree(root).write(fname+".xml")
