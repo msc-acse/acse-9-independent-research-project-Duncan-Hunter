@@ -2,7 +2,9 @@
 These tools use the GMSH-SDK (or GMSH API), available [here](http://gmsh.info/).
 
 ## Installation
-pip install -i https://test.pypi.org/simple/ pipe-gmsh
+```python
+python3 -m pip install -i https://test.pypi.org/simple/ pipe-gmsh
+```
 
 Once completed, navigate to site-packages/pipemesh. Place the files libgmsh.so, libgmsh.so.4.3 and libgmsh.so.4.3.0, which can be downloaded from the GMSH website (link above).
 
