@@ -2,7 +2,7 @@
 Create pipes and pipe networks using the Network class.
 
 Bugs:
-
+    - Mitered corner mesh size needs to be a certain size
 Todo
     - Physical groups
         Could be a bit neater. Improve write function
@@ -10,11 +10,11 @@ Todo
         Test case mesh info (e.g. no of nodes, faces, physical groups)
         Test case with ICFERST
 """
-import wrapper.gmsh as gmsh
+from pipemesh import gmsh
 import os
 import numpy as np
 import xml.etree.ElementTree as ET
-import wrapper.pieces as pieces
+from pipemesh import pieces
 
 MODEL = gmsh.model
 FACTORY = MODEL.occ
@@ -22,14 +22,17 @@ MESH = MODEL.mesh
 #gmsh.option.setNumber("General.Terminal", 1)
 
 
-def round_0(values):
+def _round_0(values):
     """Rounds values less than 1e-8 to 0."""
     values = np.array(values)
     values[np.abs(values) < 1e-8] = 0
     return values
 
-def check_intersect(objects, tools):
+
+def _check_intersect(objects, tools):
     """
+    Currently unused.
+
     Check if entities in tools intersect entities in objects.
     objects: (list) 1st group of entities
     tools: (list) 2nd group of entities
@@ -40,9 +43,8 @@ def check_intersect(objects, tools):
     intersect = FACTORY.intersect(objects,
                                   tools,
                                   removeObject=False,
-                                  removeTool=False)
+                                  removeTool=False)[0]
     if intersect:
-        FACTORY.remove(intersect, True)
         return True
     return False
 
@@ -308,7 +310,13 @@ class Network():
 
         if self.vol_tag:
             raise ValueError("Network already fused")
+
+
         vol_tags = [piece.vol_tag for piece in self.piece_list]
+
+        if _check_intersect([vol_tags[0]], vol_tags[1:]):
+            raise ValueError("Pieces overlap")
+
         out_dim_tags = FACTORY.fuse([vol_tags[0]], vol_tags[1:])[0]
         FACTORY.synchronize()
         self.vol_tag = out_dim_tags[0]
@@ -400,11 +408,12 @@ class Network():
         """Generates mesh and saves if filename."""
         self._set_mesh_sizes()
         self.set_physical_groups()
-
         MESH.generate(3)
         if filename:
             if binary:
                 gmsh.option.setNumber("Mesh.Binary", 1)
+            else:
+                gmsh.option.setNumber("Mesh.Binary", 0)
             name = filename + "." + mesh_format
             gmsh.write(name)
             os.rename(name, filename + ".msh")
@@ -429,17 +438,29 @@ class Network():
             myfile.writelines("\nInOut Surfaces")
             for key, surf in self.physical_in_out_surfaces.items():
                 myfile.writelines("\n{}\t{}\t{}".format(
-                    key, round_0(surf.centre), round_0(surf.direction)))
+                    key, _round_0(surf.centre), _round_0(surf.direction)))
             myfile.writelines("\nCylinder Surfaces")
             for key, dimtag in self.physical_no_slip.items():
-                myfile.writelines(f"\n{key}\t{FACTORY.getCenterOfMass(2, dimtag[1])}")
+                centre = np.array(FACTORY.getCenterOfMass(2, dimtag[1]))
+                myfile.writelines("\n{}\t{}".format(key, centre))
+            myfile.writelines("\nIntersection locations and directions")
+            for piece in self.piece_list:
+                myfile.writelines("\n{}\t{}".format(
+                    np.array(piece.out_surface.centre),
+                    piece.out_surface.direction)
+                                  )
+                if hasattr(piece, 't_surface'):
+                    myfile.writelines("\n{}\t{}".format(
+                        np.array(piece.t_surface.centre),
+                        piece.t_surface.direction)
+                                      )
             myfile.close()
 
     def _write_xml(self, fname):
         root = ET.Element('root')
         inlet_surfs = ET.SubElement(root, "inlet_surfaces")
         for key, surf in self.physical_in_out_surfaces.items():
-            surf = ET.SubElement(inlet_surfs, f"{key}",attrib={
+            surf = ET.SubElement(inlet_surfs, "{}".format(key),attrib={
                 "centre":np.array2string(np.array(surf.centre)),
                 "outward_direction":np.array2string(
                     np.array(surf.direction)
@@ -450,9 +471,8 @@ class Network():
             centre = np.array2string(
                 np.array(FACTORY.getCenterOfMass(2, dimtag[1]))
                 )
-            surf = ET.SubElement(cyl_surfs, f"{key}", attrib={
+            surf = ET.SubElement(cyl_surfs, "{}".format(key), attrib={
                 "centre":centre
             })
         volume = ET.SubElement(root, "volume").text = str(self.vol_tag)
-        print(fname)
-        ET.ElementTree(root).write(fname+".xml")
+        ET.ElementTree(root).write(fname+".xml", encoding='utf-8')

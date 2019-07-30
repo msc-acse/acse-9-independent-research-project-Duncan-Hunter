@@ -4,7 +4,7 @@ Also contains useful functions for these classes.
 """
 # pylint: disable=C0411
 # pylint: disable=R0913
-import wrapper.gmsh as gmsh
+from pipemesh import gmsh
 import numpy as np
 from scipy.spatial.transform import Rotation
 
@@ -257,19 +257,25 @@ class ChangeRadius(PipePiece):
             FACTORY.chamfer([vol_tag[1]], [lines[0][1]], [in_tag[1]],
                             [out_radius - in_radius, change_length])
             FACTORY.synchronize()
+            self.increase = True
         else:
             lines = MODEL.getBoundary(out_tag, False, False)
             FACTORY.chamfer([vol_tag[1]], [lines[0][1]], [out_tag[1]],
                             [in_radius - out_radius, change_length])
             FACTORY.synchronize()
+            self.increase = False
 
         direction = np.array(direction)
 
         _rotate_inlet(vol_tag, direction, direction)
 
         surfaces = MODEL.getBoundary([vol_tag], False)
-        in_tag = surfaces[2]
-        out_tag = surfaces[3]
+        if self.increase:
+            in_tag = surfaces[3]
+            out_tag = surfaces[2]
+        else:
+            in_tag = surfaces[2]
+            out_tag = surfaces[3]
 
         super(ChangeRadius, self).__init__(out_radius, vol_tag, in_tag,
                                            out_tag, direction, direction, lcar)
@@ -277,8 +283,12 @@ class ChangeRadius(PipePiece):
     def update_surfaces(self):
         """See base class."""
         surfaces = MODEL.getBoundary([self.vol_tag], combined=False)
-        self.in_surface.dimtag = surfaces[2]
-        self.out_surface.dimtag = surfaces[3]
+        if self.increase:
+            self.in_surface.dimtag = surfaces[3]
+            self.out_surface.dimtag = surfaces[2]
+        else:
+            self.in_surface.dimtag = surfaces[2]
+            self.out_surface.dimtag = surfaces[3]
 
 
 class Curve(PipePiece):
