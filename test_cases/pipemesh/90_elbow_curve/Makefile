@@ -7,3 +7,4 @@ pipe:	src/generate.py
 
 clean:
 	rm src/pipe*
+	rm -rf 3d_pipe_elbow_test_case*
