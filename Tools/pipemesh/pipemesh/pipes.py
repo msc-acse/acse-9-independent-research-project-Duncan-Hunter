@@ -1,25 +1,21 @@
 """
 Create pipes and pipe networks using the Network class.
 
-Bugs:
-    - Mitered corner mesh size needs to be a certain size
-Todo
-    - Physical groups
-        Could be a bit neater. Improve write function
-    - Testing
-        Test case mesh info (e.g. no of nodes, faces, physical groups)
-        Test case with ICFERST
+See the Readme for more details.
 """
-from pipemesh import gmsh
+
+# pylint: disable=C0411
+# pylint: disable=R0913
+# pylint: disable=E1101
+
+from pipemesh import pieces, gmsh
 import os
 import numpy as np
 import xml.etree.ElementTree as ET
-from pipemesh import pieces
 
 MODEL = gmsh.model
 FACTORY = MODEL.occ
 MESH = MODEL.mesh
-#gmsh.option.setNumber("General.Terminal", 1)
 
 
 def _round_0(values):
@@ -29,24 +25,25 @@ def _round_0(values):
     return values
 
 
-def _check_intersect(objects, tools):
+def _check_intersect(objects):
     """
-    Currently unused.
+    Currently used.
 
     Check if entities in tools intersect entities in objects.
-    objects: (list) 1st group of entities
-    tools: (list) 2nd group of entities
 
-    returns: (bool) True if there is an intersection.
-                    False if there is no intersection.
+    Args:
+        objects: (list) dimtags of volumes in model.
+
+    Raises:
+        ValueError: If pieces overlap.
     """
-    intersect = FACTORY.intersect(objects,
-                                  tools,
-                                  removeObject=False,
-                                  removeTool=False)[0]
-    if intersect:
-        return True
-    return False
+    print(objects)
+    for i in range(len(objects)):
+        obj = objects[i]
+        intersect = FACTORY.intersect([obj], objects[:i]+objects[i+1:], removeObject=False, removeTool=False)[0]
+        if intersect:
+            raise ValueError("Pieces overlap")
+    return
 
 
 class Network():
@@ -56,22 +53,18 @@ class Network():
     When a junction is added, a new "out surface" is added, which
     can be added to. In this way, a network of pipes can be built.
 
-    Example:
-    network.add_t_junction([-1,1,0], 0.1)
-    network.add_t_junction([-1,-1,0], 0.1)
-    network.add_cylinder(1, 0.1, out_number=2)
-    network.add_curve([-1,0,0], 0.5, 0.1, out_number=3)
-    network.add_cylinder(1.5, 0.1, out_number=3)
-
     Once the pipe has been made, the functions below can be used:
-    network.set_physical_groups()  # for IC-FERST
+    network._set_physical_groups()  # for IC-FERST
     network._set_mesh_sizes()  # enforces lcar
     network.write_info("info.csv")  # for you and IC-FERST
 
     Attributes:
-        physical_in_out_surfaces:
-        phyiscal_no_slip:
-        physical_volume:
+        physical_in_out_surfaces: Dictionary of Physical surface tags
+            to GMSH surface tags for inlets/outlets.
+        phyiscal_no_slip: Dictionary of Physical surface tags for
+            walls/outside of cylinder.
+        physical_volume: Physical tag of the volume. Only available
+            after generate.
     """
 
     def __init__(self, length, radius, direction, lcar):
@@ -159,7 +152,7 @@ class Network():
         translate_vector = out_surface.centre - piece.in_surface.centre
         FACTORY.translate([piece.vol_tag], *list(translate_vector))
         FACTORY.synchronize()
-        piece.update_centres()
+        piece._update_centres()
         self.piece_list.append(piece)
         self.out_surfaces[out_number] = piece.out_surface
 
@@ -192,16 +185,15 @@ class Network():
         translate_vector = out_surface.centre - piece.in_surface.centre
         FACTORY.translate([piece.vol_tag], *list(translate_vector))
         FACTORY.synchronize()
-        piece.update_centres()
+        piece._update_centres()
         self.piece_list.append(piece)
         self.out_surfaces[out_number] = piece.out_surface
 
     def add_mitered(self, new_direction, lcar, out_number=0):
         """Adds a mitered bend to the Network at the outlet.
 
-        A mitered bend is a sharp change in direction. The piece
-        contains planes that may have an effect when creating
-        the physical surfaces at outlets.
+        A mitered bend is a sharp change in direction. Hard to
+        simulate.
 
         Args:
             new_direction: (list, length 3) xyz vector representing
@@ -217,7 +209,7 @@ class Network():
         translate_vector = out_surface.centre - piece.in_surface.centre
         FACTORY.translate([piece.vol_tag], *list(translate_vector))
         FACTORY.synchronize()
-        piece.update_centres()
+        piece._update_centres()
         self.piece_list.append(piece)
         self.out_surfaces[out_number] = piece.out_surface
 
@@ -227,7 +219,7 @@ class Network():
                           change_length,
                           lcar,
                           out_number=0):
-        """Adds a piece that changes the radius of the Network.
+        """Adds a piece that changes the radius of the outlet.
 
         The piece is length long, and changes the Network radius to
         new_radius, over change_length, which controls how gentle the
@@ -259,7 +251,7 @@ class Network():
         translate_vector = out_surface.centre - piece.in_surface.centre
         FACTORY.translate([piece.vol_tag], *list(translate_vector))
         FACTORY.synchronize()
-        piece.update_centres()
+        piece._update_centres()
         self.piece_list.append(piece)
         self.out_surfaces[out_number] = piece.out_surface
 
@@ -285,18 +277,17 @@ class Network():
         if t_radius <= 0:
             t_radius = out_surface.radius
 
-        piece = pieces.TJunction(out_surface.radius, t_radius, out_surface.direction,
-                                 t_direction, lcar)
+        piece = pieces.TJunction(out_surface.radius, t_radius,
+                                 out_surface.direction, t_direction, lcar)
         translate_vector = out_surface.centre - piece.in_surface.centre
         FACTORY.translate([piece.vol_tag], *list(translate_vector))
         FACTORY.synchronize()
-        piece.update_centres()
+        piece._update_centres()
         self.piece_list.append(piece)
         self.out_surfaces.append(piece.t_surface)
         self.out_surfaces[out_number] = piece.out_surface
 
     def _fuse_objects(self):
-        #fuse_tool = self.entities[0]
         """Fuses separate objects in Network together.
 
         Returns
@@ -311,11 +302,11 @@ class Network():
         if self.vol_tag:
             raise ValueError("Network already fused")
 
-
         vol_tags = [piece.vol_tag for piece in self.piece_list]
 
-        if _check_intersect([vol_tags[0]], vol_tags[1:]):
-            raise ValueError("Pieces overlap")
+        # if _check_intersect([vol_tags[0]], vol_tags[1:]):
+        _check_intersect(vol_tags):
+
 
         out_dim_tags = FACTORY.fuse([vol_tags[0]], vol_tags[1:])[0]
         FACTORY.synchronize()
@@ -347,27 +338,18 @@ class Network():
                 no_slip.append(surf)
         return no_slip
 
-    def set_physical_groups(self):
+    def _set_physical_groups(self):
         """Sets the physical groups of the network.
 
         Sets every surface to a physical surface, and the volume
         to a physical volume."""
         no_slip = self._fuse_objects()
-        # put these into class attribute. Dictionary mapping dimtag to physical.
-        # In surfaces as dictionary mapping dimtag to physical.
-        # Out surfaces as dictionary mapping dimtag to physical. or vice versa
-        # Then information about physical tag can be stored.
-        # self.physical_no_slip = [tag[1] for tag in no_slip]
         for dimtag in no_slip:
             phys_tag = MODEL.addPhysicalGroup(2, [dimtag[1]])
             self.physical_no_slip[phys_tag] = dimtag
         for surface in self.in_surfaces + self.out_surfaces:
             phys_tag = MODEL.addPhysicalGroup(2, [surface.dimtag[1]])
             self.physical_in_out_surfaces[phys_tag] = surface
-        # self.physical_no_slip = MODEL.addPhysicalGroup(2, no_slip_tags)
-        # for surf in self.out_surfaces + self.in_surfaces:
-        #     phys_tag = MODEL.addPhysicalGroup(2, [surf.dimtag[1]])
-        #     self.physical_in_out_surfaces[phys_tag] = surf
         self.physical_volume = MODEL.addPhysicalGroup(3, [self.vol_tag[1]])
 
     def rotate_network(self, axis, angle):
@@ -385,8 +367,8 @@ class Network():
         FACTORY.rotate(dimtags, 0, 0, 0, *list(rot_axis), angle)
         FACTORY.synchronize()
         for piece in self.piece_list:
-            piece.update_centres()
-            piece.update_directions(rot_axis, angle)
+            piece._update_centres()
+            piece._update_directions(rot_axis, angle)
 
     def translate_network(self, vector):
         """Translates a network by vector.
@@ -401,13 +383,32 @@ class Network():
         FACTORY.translate(dimtags, *list(vector))
         FACTORY.synchronize()
         for piece in self.piece_list:
-            piece.update_centres()
+            piece._update_centres()
 
-    def generate(self, filename=None, binary=False, mesh_format='msh2',
-                 write_info=False, write_xml=False, run_gui=False):
-        """Generates mesh and saves if filename."""
+    def generate(self,
+                 filename=None,
+                 binary=False,
+                 mesh_format='msh2',
+                 write_info=False,
+                 write_xml=False,
+                 run_gui=False):
+        """Generates mesh and saves if filename.
+
+        Args:
+            filename: (string) filename (without extension) to save as.
+            binary: (Bool) Save mesh as binary or not. Default (False).
+            mesh_format: (string) mesh format to save as. Default is
+                msh2. To save as msh4, use 'msh4'.
+            write_info: (Bool) write filename.txt with mesh
+                mesh information (physical surfaces, locations
+                and directions).
+            write_xml: (Bool) write information in an xml file. Still
+                under development.
+            run_gui: (Bool) run the gmsh gui to view the mesh. May
+                stop saving of information/meshes.
+        """
         self._set_mesh_sizes()
-        self.set_physical_groups()
+        self._set_physical_groups()
         MESH.generate(3)
         if filename:
             if binary:
@@ -430,11 +431,11 @@ class Network():
     def _write_info(self, fname):
         """Writes network info into file fname.
 
-        Potentially changed to xml or csv. Write in/out surfaces as normals.
-        (reverse in surface).
-        Then write cylinder info."""
+        Writes Inlet/Outlet physical surface numbers, centres, and outwards
+        normals. Then writes details about cylinders.
+        """
         with open(fname, 'w') as myfile:
-            myfile.writelines("PhySurf, centre, outward direction")
+            myfile.writelines("Physical Surface, Centre, Outward Direction")
             myfile.writelines("\nInOut Surfaces")
             for key, surf in self.physical_in_out_surfaces.items():
                 myfile.writelines("\n{}\t{}\t{}".format(
@@ -447,32 +448,33 @@ class Network():
             for piece in self.piece_list:
                 myfile.writelines("\n{}\t{}".format(
                     np.array(piece.out_surface.centre),
-                    piece.out_surface.direction)
-                                  )
+                    piece.out_surface.direction))
                 if hasattr(piece, 't_surface'):
                     myfile.writelines("\n{}\t{}".format(
                         np.array(piece.t_surface.centre),
-                        piece.t_surface.direction)
-                                      )
+                        piece.t_surface.direction))
             myfile.close()
 
     def _write_xml(self, fname):
+        """Writes information as xml tree."""
         root = ET.Element('root')
         inlet_surfs = ET.SubElement(root, "inlet_surfaces")
         for key, surf in self.physical_in_out_surfaces.items():
-            surf = ET.SubElement(inlet_surfs, "{}".format(key),attrib={
-                "centre":np.array2string(np.array(surf.centre)),
-                "outward_direction":np.array2string(
-                    np.array(surf.direction)
-                    )
-            })
+            surf = ET.SubElement(inlet_surfs,
+                                 "{}".format(key),
+                                 attrib={
+                                     "centre":
+                                     np.array2string(np.array(surf.centre)),
+                                     "outward_direction":
+                                     np.array2string(np.array(surf.direction))
+                                 })
         cyl_surfs = ET.SubElement(root, "cylinder_surfaces")
         for key, dimtag in self.physical_no_slip.items():
             centre = np.array2string(
-                np.array(FACTORY.getCenterOfMass(2, dimtag[1]))
-                )
-            surf = ET.SubElement(cyl_surfs, "{}".format(key), attrib={
-                "centre":centre
-            })
-        volume = ET.SubElement(root, "volume").text = str(self.vol_tag)
-        ET.ElementTree(root).write(fname+".xml", encoding='utf-8')
+                np.array(FACTORY.getCenterOfMass(2, dimtag[1])))
+            surf = ET.SubElement(cyl_surfs,
+                                 "{}".format(key),
+                                 attrib={"centre": centre})
+        volume = ET.SubElement(root, "volume")
+        volume.text = str(self.vol_tag)
+        ET.ElementTree(root).write(fname + ".xml", encoding='utf-8')
