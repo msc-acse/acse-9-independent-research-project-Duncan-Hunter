@@ -7,12 +7,12 @@ the set_methods to set options. Then use write to generate the file.
 import xml.etree.ElementTree as ET
 import copy
 import os
-loc = os.path.dirname(os.path.abspath(__file__))
+LOC = os.path.dirname(os.path.abspath(__file__))
 
 
 class AutoMPML():
     def __init__(self):
-        fname = loc + "/3d_pipe_FEM.mpml"
+        fname = LOC + "/3d_pipe_FEM.mpml"
         self.mpml_tree = ET.parse(fname)
         self.mpml_root = self.mpml_tree.getroot()
 
@@ -23,13 +23,14 @@ class AutoMPML():
         self.material_phase = self.mpml_root[6]
         self.mesh_adaptivity = self.mpml_root[7]
 
-    def set_all(sim_name=None,
+    def set_all(self,
+                sim_name=None,
                 msh_file="src/pipe",
                 dump_period=0.1,
                 dump_ids=[],
                 finish_time=1,
                 timestep=0.005,
-                CFL_no=2.0,
+                cfl_no=2.0,
                 density=1e-3,
                 viscosity=1e-3,
                 inlet_phys_ids=[],
@@ -47,7 +48,7 @@ class AutoMPML():
         self.set_sim_name(sim_name)
         self.set_msh_options(msh_file)
         self.set_io_options(dump_period, dump_ids)
-        self.set_timestepping(finish_time, timestep, CFL_no)
+        self.set_timestepping(finish_time, timestep, cfl_no)
         self.set_material_properties(density, viscosity)
         self.set_inlets(inlet_phys_ids, inlet_velocities)
         self.set_outlets(outlet_phys_ids)
@@ -65,7 +66,9 @@ class AutoMPML():
     def set_msh_options(self, msh_file):
         """Sets the location of the msh_file.
 
-        Default is src/pipe."""
+        Default is src/pipe.
+        Args:
+            msh_file: (string) location .msh file is stored."""
         mesh = self.msh_options[1]
         mesh[0].attrib['file_name'] = msh_file
 
@@ -85,31 +88,31 @@ class AutoMPML():
         for i in dump_ids[1:]:
             text += " {}".format(i)
         dump_id = self.io_options[2][0][0]
-        dump_id.attrib['shape'] = len(dump_ids)
+        dump_id.attrib['shape'] = str(len(dump_ids))
         dump_id.text = text
 
-    def set_timestepping(self, finish_time, timestep=0.005, CFL_no=2.0):
+    def set_timestepping(self, finish_time, timestep=0.005, cfl_no=2.0):
         """Sets the timestepping options.
 
         Args:
             finish_time: Time the simulations stops.
             timestep: Initial timestep.
-            CFL_no: CFL number adaptive timestepping aims for.
+            cfl_no: CFL number adaptive timestepping aims for.
         """
         tstep = self.timestepping[1][0]
         tstep.text = str(timestep)
         ftime = self.timestepping[2][0]
         ftime.text = str(finish_time)
 
-        if CFL_no > 4:
+        if cfl_no > 4:
             raise ValueError("CFL number too high")
-        elif CFL_no > 2:
+        if cfl_no > 2:
             print("Warning: High CFL number")
-        elif CFL_no <= 0:
+        elif cfl_no <= 0:
             raise ValueError("CFL number too low")
 
         cfl = self.timestepping[3][0][0]
-        cfl.text = str(CFL_no)
+        cfl.text = str(cfl_no)
 
     def set_material_properties(self, density=1e3, viscosity=1e-3):
         """Sets the material phase properties.
@@ -183,7 +186,7 @@ class AutoMPML():
         """
         pressure = self.material_phase[1]
         out_ids = pressure[0][2][0][0]
-        out_ids.attrib['shape'] = len(phys_ids)
+        out_ids.attrib['shape'] = str(len(phys_ids))
         text = str(phys_ids[0])
         for i in phys_ids[1:]:
             text += " {}".format(int(i))
@@ -204,7 +207,7 @@ class AutoMPML():
 
         for cond in [cyl_mom, cyl_ns_visc, cyl]:
             out_ids = cond[0][0]
-            out_ids.attrib['shape'] = len(phys_ids)
+            out_ids.attrib['shape'] = str(len(phys_ids))
             out_ids.text = text
 
     def set_mesh_adaptivity(self,
