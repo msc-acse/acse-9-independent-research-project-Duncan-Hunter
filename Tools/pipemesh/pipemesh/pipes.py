@@ -2,7 +2,7 @@
 """
 Create pipes and pipe networks using the Network class.
 
-See the Readme for more details.
+See the Readme for more details and examples.
 """
 
 # pylint: disable=C0411
@@ -56,11 +56,6 @@ class Network():
     Pipes are built from an inlet in a sequential, modular fashion.
     When a junction is added, a new "out surface" is added, which
     can be added to. In this way, a network of pipes can be built.
-
-    Once the pipe has been made, the functions below can be used:
-    network._set_physical_groups()  # for IC-FERST
-    network._set_mesh_sizes()  # enforces lcar
-    network.write_info("info.csv")  # for you and IC-FERST
 
     Attributes:
         physical_in_out_surfaces: Dictionary of Physical surface tags
