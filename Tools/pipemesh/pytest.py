@@ -76,8 +76,18 @@ def test4():
     gmsh.finalize()
     print("Indiviual pieces created correctly.")
 
+def test5():
+    """Tests creation of velocities."""
+    network = pipes.Network(
+        1, 0.25, [1, 1, 1], 0.1
+    )
+    network.add_t_junction([1,0,0], 0.1)
+    network.generate(run_gui=False)
+    velos = network.get_velocities_reynolds([1, 3], 10000, 1000, 1e-3)
+    assert(np.allclose(velos[1], np.array([-0.02, 0, 0])))
 
-test1()
-test2()
-test3()
-test4()
+# test1()
+# test2()
+# test3()
+# test4()
+test5()
