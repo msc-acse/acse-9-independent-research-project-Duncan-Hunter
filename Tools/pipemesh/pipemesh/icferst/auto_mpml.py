@@ -3,6 +3,8 @@ Edits a basic .mpml file with the AutoMPML class.
 
 Create the class with options = AutoMPML. Then call
 the set_methods to set options. Then use write to generate the file.
+MPML files generated will only work with latest version of IC-FERST.
+Contact author if you want support for older versions.
 """
 import xml.etree.ElementTree as ET
 import copy
