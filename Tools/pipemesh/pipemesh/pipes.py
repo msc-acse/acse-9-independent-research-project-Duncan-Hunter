@@ -344,7 +344,7 @@ class Network():
         Sets every surface to a physical surface, and the volume
         to a physical volume."""
         no_slip = self._fuse_objects()
-        
+
         for surface in self.in_surfaces + self.out_surfaces:
             phys_tag = MODEL.addPhysicalGroup(2, [surface.dimtag[1]])
             self.physical_in_out_surfaces[phys_tag] = surface
@@ -354,9 +354,18 @@ class Network():
             self.physical_no_slip[phys_tag] = dimtag
         self.physical_volume = MODEL.addPhysicalGroup(3, [self.vol_tag[1]])
 
+    def get_inlet_outlet_phys_ids(self):
+        """Returns a list of physical ids of inlets.
+
+        By default, the inlet phys_id is 1,
+        then the default outlet is 2, followed by any added outlets in the order
+        they were added."""
+        phys_ids = list(self.physical_in_out_surfaces.keys())
+        return phys_ids
+
     def get_velocities_reynolds(self, physical_ids, reynolds_no, density, viscosity):
         """Creates velocity vectors for inlets using reynolds number.
-        
+
         Must be run after generate().
         Physical ids are turned into indices, which are used to select surfaces
         from self.physical_in_out_surfaces. By default, the inlet phys_id is 1,
@@ -381,7 +390,7 @@ class Network():
             # add to velocities
             velocities.append(velocity)
         return velocities
-    
+
     def get_velocities_vel_mag(self, physical_ids, velocity_magnitude, density, viscosity):
         """Creates velocity vectors for inlets using velocity magnitude.
 
@@ -406,7 +415,7 @@ class Network():
             # add to velocities
             velocities.append(velocity)
         return velocities
-        
+
     def rotate_network(self, axis, angle):
         """Rotates the network from old_direction to new_direction.
 
