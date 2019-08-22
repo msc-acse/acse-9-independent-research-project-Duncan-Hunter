@@ -202,6 +202,8 @@ class Cylinder(PipePiece):
         """
         self.length = length
         self.lcar = lcar
+        if length <= 0:
+            raise ValueError("Length must be greater than 0.")
         vol_tag = (3, FACTORY.addCylinder(0, 0, 0, 0, 0, length, radius))
         FACTORY.synchronize()
         surfaces = MODEL.getBoundary([vol_tag], False)
@@ -313,6 +315,8 @@ class Curve(PipePiece):
         in_tag = (2, FACTORY.addDisk(0, 0, 0, radius, radius))
         in_direction = np.array(in_direction)
         out_direction = np.array(out_direction)
+        if np.allclose(in_direction, out_direction):
+            raise ValueError("Directions must be different.")
 
         revolve_axis = [0, 1, 0]
         centre_of_rotation = [bend_radius, 0, 0]
@@ -369,10 +373,11 @@ class Mitered(PipePiece):
             out_direction: (list, length 3) xyz vector representing
             direction going out.
             lcar: (float) mesh size for this piece.
-
         """
         in_direction = np.array(in_direction)
-        out_direction = np.array(out_direction)  # clean up v's
+        out_direction = np.array(out_direction)
+        if np.allclose(in_direction, out_direction):
+            raise ValueError("Directions must be different.")
 
         # Chamfer cylinder
         angle = vec_angle(out_direction, in_direction)
@@ -450,6 +455,9 @@ class TJunction(PipePiece):
         if t_radius > radius:
             raise ValueError("t_radius cannot be bigger than radius")
         direction = np.array(direction)
+        t_direction = np.array(t_direction)
+        if np.allclose(direction, t_direction):
+            raise ValueError("Directions must be different.")
         t_angle = vec_angle(direction, t_direction)
         if t_angle > np.pi / 2:
             self.inv_surfs = True
