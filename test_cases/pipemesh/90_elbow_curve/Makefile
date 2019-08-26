@@ -8,7 +8,7 @@ pipe:	src/generate.py
 
 clean:
 	rm src/pipe*
-	rm generated_mpml.mpml
+	rm *.mpml
 	rm -rf 3d_pipe_elbow_test_case*
 	rm *.vtu
 	rm *.stat

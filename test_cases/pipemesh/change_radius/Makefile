@@ -10,5 +10,7 @@ pipe:	src/generate.py
 clean:
 	rm src/pipe*
 	rm -rf 3d_pipe_change_radius_test_case*
+	rm *.mpml
 	rm *.stat
 	rm *.csv
+	rm *.vtu

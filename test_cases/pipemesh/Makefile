@@ -10,5 +10,12 @@ venv:	clean
 		python3 -m pip install -i https://test.pypi.org/simple/ pipemesh;	\
 	)
 
-clean:
+clean_venv:
 	rm -rf virtual_env
+
+clean_all:
+	cd cylinder && make clean
+	cd 90_elbow_curve && make clean
+	cd 90_elbow_miter && make clean
+	cd change_radius && make clean
+	cd t_junction && make clean

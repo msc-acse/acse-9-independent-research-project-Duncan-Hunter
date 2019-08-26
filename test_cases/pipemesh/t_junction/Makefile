@@ -10,7 +10,7 @@ pipe:	src/generate.py
 clean:
 	rm src/pipe*
 	rm -rf junction_flow_test_case*
-	rm generated_mpml.mpml
+	rm *.mpml
 	rm *.vtu
 	rm *.stat
 	rm *.csv

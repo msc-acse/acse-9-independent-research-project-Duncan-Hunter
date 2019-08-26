@@ -11,13 +11,14 @@ inlets = entry_phys_ids[:2]
 outlets = entry_phys_ids[2:]
 
 vel = 0.02
-inlet_velocities = network.get_velocities_vel_mag(inlets, vel, 1000, 1e-3)
+inlet_velocities = network.get_velocities_vel_mag(inlets, vel)
 
 options = auto_mpml.AutoMPML()
 options.set_all(sim_name="junction_flow_test_case",
                 msh_file="src/pipe",
                 dump_ids=entry_phys_ids,
                 density=1000,
+                viscosity=1e-3,
                 inlet_phys_ids=inlets, inlet_velocities=inlet_velocities,
                 outlet_phys_ids=outlets,
                 cyl_phys_ids=cyl_phys_ids,
@@ -26,4 +27,4 @@ options.set_all(sim_name="junction_flow_test_case",
                 finish_time=1.0,
                 t_adapt_delay=0.5
                 )
-options.write_mpml("../generated_mpml")
+options.write_mpml("../3d_pipe_FEM")

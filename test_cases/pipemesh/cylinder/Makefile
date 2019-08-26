@@ -9,6 +9,7 @@ pipe:	src/generate.py
 clean:
 	rm src/pipe*
 	rm -rf 3d_pipe_cylinder_test_case*
+	rm *.mpml
 	rm -rf *.pvtu
 	rm *.stat
 	rm *.csv
