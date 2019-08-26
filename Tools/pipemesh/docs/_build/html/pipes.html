@@ -1,0 +1,300 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Pipes &#8212; pipemesh 0.1.2 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Pieces" href="pieces.html" />
+    <link rel="prev" title="Welcome to pipemesh’s documentation!" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="module-pipemesh.pipes">
+<span id="pipes"></span><h1>Pipes<a class="headerlink" href="#module-pipemesh.pipes" title="Permalink to this headline">¶</a></h1>
+<p>Create pipes and pipe networks using the Network class.</p>
+<p>See the Readme for more details.</p>
+<dl class="class">
+<dt id="pipemesh.pipes.Network">
+<em class="property">class </em><code class="sig-prename descclassname">pipemesh.pipes.</code><code class="sig-name descname">Network</code><span class="sig-paren">(</span><em class="sig-param">length</em>, <em class="sig-param">radius</em>, <em class="sig-param">direction</em>, <em class="sig-param">lcar</em><span class="sig-paren">)</span><a class="headerlink" href="#pipemesh.pipes.Network" title="Permalink to this definition">¶</a></dt>
+<dd><p>Represents a pipe or network of pipes.</p>
+<p>Pipes are built from an inlet in a sequential, modular fashion.
+When a junction is added, a new “out surface” is added, which
+can be added to. In this way, a network of pipes can be built.</p>
+<p>Once the pipe has been made, the functions below can be used:
+network._set_physical_groups()  # for IC-FERST
+network._set_mesh_sizes()  # enforces lcar
+network.write_info(“info.csv”)  # for you and IC-FERST</p>
+<dl class="attribute">
+<dt id="pipemesh.pipes.Network.physical_in_out_surfaces">
+<code class="sig-name descname">physical_in_out_surfaces</code><a class="headerlink" href="#pipemesh.pipes.Network.physical_in_out_surfaces" title="Permalink to this definition">¶</a></dt>
+<dd><p>Dictionary of Physical surface tags
+to GMSH surface tags for inlets/outlets.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pipemesh.pipes.Network.phyiscal_no_slip">
+<code class="sig-name descname">phyiscal_no_slip</code><a class="headerlink" href="#pipemesh.pipes.Network.phyiscal_no_slip" title="Permalink to this definition">¶</a></dt>
+<dd><p>Dictionary of Physical surface tags for
+walls/outside of cylinder.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pipemesh.pipes.Network.physical_volume">
+<code class="sig-name descname">physical_volume</code><a class="headerlink" href="#pipemesh.pipes.Network.physical_volume" title="Permalink to this definition">¶</a></dt>
+<dd><p>Physical tag of the volume. Only available
+after generate.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pipemesh.pipes.Network.add_change_radius">
+<code class="sig-name descname">add_change_radius</code><span class="sig-paren">(</span><em class="sig-param">length</em>, <em class="sig-param">new_radius</em>, <em class="sig-param">change_length</em>, <em class="sig-param">lcar</em>, <em class="sig-param">out_number=0</em><span class="sig-paren">)</span><a class="headerlink" href="#pipemesh.pipes.Network.add_change_radius" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds a piece that changes the radius of the outlet.</p>
+<p>The piece is length long, and changes the Network radius to
+new_radius, over change_length, which controls how gentle the
+change is.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>length</strong> – (float) Length of the piece.</p></li>
+<li><p><strong>new_radius</strong> – (float) radius to change to.</p></li>
+<li><p><strong>change_length</strong> – (float) Length that the change takes
+place over. Must be less than length and &gt; 0.</p></li>
+<li><p><strong>lcar</strong> – (float) mesh size for this piece.</p></li>
+<li><p><strong>out_number</strong> – Out surface to add to. If &lt;= 1, will add to the
+first out surface.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><strong>ValueErrors</strong> – change_length is not between length and 0.
+    If radius does not change.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="pipemesh.pipes.Network.add_curve">
+<code class="sig-name descname">add_curve</code><span class="sig-paren">(</span><em class="sig-param">new_direction</em>, <em class="sig-param">bend_radius</em>, <em class="sig-param">lcar</em>, <em class="sig-param">out_number=0</em><span class="sig-paren">)</span><a class="headerlink" href="#pipemesh.pipes.Network.add_curve" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds a curve to the Network at the outlet.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>new_direction</strong> – (list) Direction pipe will be facing
+in x, y, z vector format.
+e.g. [0, 1, 0] faces positive y.</p></li>
+<li><p><strong>bend_radius</strong> – (float) Radius of the bend.</p></li>
+<li><p><strong>lcar</strong> – (float) Size of mesh in this piece.</p></li>
+<li><p><strong>out_number</strong> – Out surface to add to. If &lt;= 1, will add to the
+first out surface.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><strong>ValueError</strong> – new_direction vector isn’t right size.
+    Bend radius isn’t big enough.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="pipemesh.pipes.Network.add_cylinder">
+<code class="sig-name descname">add_cylinder</code><span class="sig-paren">(</span><em class="sig-param">length</em>, <em class="sig-param">lcar</em>, <em class="sig-param">out_number=0</em><span class="sig-paren">)</span><a class="headerlink" href="#pipemesh.pipes.Network.add_cylinder" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds a pipe to the Network at the outlet.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>length</strong> – (float) length of pipe.</p></li>
+<li><p><strong>lcar</strong> – (float) mesh size of piece.</p></li>
+<li><p><strong>out_number</strong> – Out surface to add to. If &lt;= 1, will add to the
+first out surface.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="pipemesh.pipes.Network.add_mitered">
+<code class="sig-name descname">add_mitered</code><span class="sig-paren">(</span><em class="sig-param">new_direction</em>, <em class="sig-param">lcar</em>, <em class="sig-param">out_number=0</em><span class="sig-paren">)</span><a class="headerlink" href="#pipemesh.pipes.Network.add_mitered" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds a mitered bend to the Network at the outlet.</p>
+<p>A mitered bend is a sharp change in direction. Hard to
+simulate.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>new_direction</strong> – (list, length 3) xyz vector representing
+the new direction of the pipe.</p></li>
+<li><p><strong>lcar</strong> – (float) size of mesh of this piece.</p></li>
+<li><p><strong>out_number</strong> – Out surface to add to. If &lt;= 1, will add to the
+first out surface.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="pipemesh.pipes.Network.add_t_junction">
+<code class="sig-name descname">add_t_junction</code><span class="sig-paren">(</span><em class="sig-param">t_direction</em>, <em class="sig-param">lcar</em>, <em class="sig-param">t_radius=-1</em>, <em class="sig-param">out_number=0</em><span class="sig-paren">)</span><a class="headerlink" href="#pipemesh.pipes.Network.add_t_junction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds a T junction to the Network at the outlet.</p>
+<p>This represents a pipe joining this pipe, creating a place to
+add a Network to this Network.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t_direction</strong> – (list, length 3) representing the direction
+that the joining pipe’s inlet is facing.</p></li>
+<li><p><strong>lcar</strong> – (float) mesh size for this piece.</p></li>
+<li><p><strong>t_radius</strong> – radius of the piece joining the pipe. If &lt;= 0, will
+default to radius of the pipe.</p></li>
+<li><p><strong>out_number</strong> – Out surface to add to. If &lt;= 1, will add to the
+first out surface.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="pipemesh.pipes.Network.generate">
+<code class="sig-name descname">generate</code><span class="sig-paren">(</span><em class="sig-param">filename=None</em>, <em class="sig-param">binary=False</em>, <em class="sig-param">mesh_format='msh2'</em>, <em class="sig-param">write_info=False</em>, <em class="sig-param">write_xml=False</em>, <em class="sig-param">run_gui=False</em><span class="sig-paren">)</span><a class="headerlink" href="#pipemesh.pipes.Network.generate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generates mesh and saves if filename.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filename</strong> – (string) filename (without extension) to save as.</p></li>
+<li><p><strong>binary</strong> – (Bool) Save mesh as binary or not. Default (False).</p></li>
+<li><p><strong>mesh_format</strong> – (string) mesh format to save as. Default is
+msh2. To save as msh4, use ‘msh4’.</p></li>
+<li><p><strong>write_info</strong> – (Bool) write filename.txt with mesh
+mesh information (physical surfaces, locations
+and directions).</p></li>
+<li><p><strong>write_xml</strong> – (Bool) write information in an xml file. Still
+under development.</p></li>
+<li><p><strong>run_gui</strong> – (Bool) run the gmsh gui to view the mesh. May
+stop saving of information/meshes.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="pipemesh.pipes.Network.rotate_network">
+<code class="sig-name descname">rotate_network</code><span class="sig-paren">(</span><em class="sig-param">axis</em>, <em class="sig-param">angle</em><span class="sig-paren">)</span><a class="headerlink" href="#pipemesh.pipes.Network.rotate_network" title="Permalink to this definition">¶</a></dt>
+<dd><p>Rotates the network from old_direction to new_direction.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>axis</strong> – (array-like, shape (3,)) xyz vector representing the
+axis of rotation.</p></li>
+<li><p><strong>angle</strong> – angle to rotate network about axis.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="pipemesh.pipes.Network.translate_network">
+<code class="sig-name descname">translate_network</code><span class="sig-paren">(</span><em class="sig-param">vector</em><span class="sig-paren">)</span><a class="headerlink" href="#pipemesh.pipes.Network.translate_network" title="Permalink to this definition">¶</a></dt>
+<dd><p>Translates a network by vector.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>vector</strong> – (list length 3) representing xyz vector to
+translate network by.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">pipemesh</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Pipes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pieces.html">Pieces</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Welcome to pipemesh’s documentation!</a></li>
+      <li>Next: <a href="pieces.html" title="next chapter">Pieces</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Duncan Hunter.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/pipes.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

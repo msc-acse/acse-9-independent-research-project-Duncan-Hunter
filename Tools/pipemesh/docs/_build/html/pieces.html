@@ -1,0 +1,178 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Pieces &#8212; pipemesh 0.1.2 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Pipes" href="pipes.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="module-pipemesh.pieces">
+<span id="pieces"></span><h1>Pieces<a class="headerlink" href="#module-pipemesh.pieces" title="Permalink to this headline">¶</a></h1>
+<p>Base classes for cylindrical GMSH pieces.</p>
+<p>Also contains useful functions for these classes.</p>
+<dl class="class">
+<dt id="pipemesh.pieces.ChangeRadius">
+<em class="property">class </em><code class="sig-prename descclassname">pipemesh.pieces.</code><code class="sig-name descname">ChangeRadius</code><span class="sig-paren">(</span><em class="sig-param">length</em>, <em class="sig-param">change_length</em>, <em class="sig-param">in_radius</em>, <em class="sig-param">out_radius</em>, <em class="sig-param">direction</em>, <em class="sig-param">lcar</em><span class="sig-paren">)</span><a class="headerlink" href="#pipemesh.pieces.ChangeRadius" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class representing a cylinder with a change in radius.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="pipemesh.pieces.Curve">
+<em class="property">class </em><code class="sig-prename descclassname">pipemesh.pieces.</code><code class="sig-name descname">Curve</code><span class="sig-paren">(</span><em class="sig-param">radius</em>, <em class="sig-param">in_direction</em>, <em class="sig-param">out_direction</em>, <em class="sig-param">bend_radius</em>, <em class="sig-param">lcar</em><span class="sig-paren">)</span><a class="headerlink" href="#pipemesh.pieces.Curve" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class representing a GMSH curve by revolution.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="pipemesh.pieces.Cylinder">
+<em class="property">class </em><code class="sig-prename descclassname">pipemesh.pieces.</code><code class="sig-name descname">Cylinder</code><span class="sig-paren">(</span><em class="sig-param">length</em>, <em class="sig-param">radius</em>, <em class="sig-param">direction</em>, <em class="sig-param">lcar</em><span class="sig-paren">)</span><a class="headerlink" href="#pipemesh.pieces.Cylinder" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class representing a GMSH cylinder with base at 0,0,0 facing upwards.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="pipemesh.pieces.Mitered">
+<em class="property">class </em><code class="sig-prename descclassname">pipemesh.pieces.</code><code class="sig-name descname">Mitered</code><span class="sig-paren">(</span><em class="sig-param">radius</em>, <em class="sig-param">in_direction</em>, <em class="sig-param">out_direction</em>, <em class="sig-param">lcar</em><span class="sig-paren">)</span><a class="headerlink" href="#pipemesh.pieces.Mitered" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class representing a mitered (sharp) pipe bend.</p>
+<p>Piece creation is done by masking (intersect) a cylinder with a
+chamfered box. The piece is then mirrored, rotated and fused.</p>
+<p>The piece is then rotated to face the direction of the outflow.
+It is then rotated about the direction of outflow to match the new direction</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="pipemesh.pieces.PipePiece">
+<em class="property">class </em><code class="sig-prename descclassname">pipemesh.pieces.</code><code class="sig-name descname">PipePiece</code><span class="sig-paren">(</span><em class="sig-param">radius</em>, <em class="sig-param">vol_tag</em>, <em class="sig-param">in_tag</em>, <em class="sig-param">out_tag</em>, <em class="sig-param">in_direction</em>, <em class="sig-param">out_direction</em>, <em class="sig-param">lcar</em><span class="sig-paren">)</span><a class="headerlink" href="#pipemesh.pieces.PipePiece" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parent class of pieces.</p>
+<p>Pieces are GMSH objects that can be used in creating pipes.
+This class has common information that all pieces have, such as
+radius. It also has functions that all the classes use, such as the
+need to update centres of pieces after they have been transformed.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="pipemesh.pieces.Surface">
+<em class="property">class </em><code class="sig-prename descclassname">pipemesh.pieces.</code><code class="sig-name descname">Surface</code><span class="sig-paren">(</span><em class="sig-param">dimtag</em>, <em class="sig-param">centre</em>, <em class="sig-param">direction</em>, <em class="sig-param">radius</em><span class="sig-paren">)</span><a class="headerlink" href="#pipemesh.pieces.Surface" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class representing a surface of a piece.</p>
+<p>Pieces are PipePieces, and are all cylindrical in nature,
+which is why the pieces have radius.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="pipemesh.pieces.TJunction">
+<em class="property">class </em><code class="sig-prename descclassname">pipemesh.pieces.</code><code class="sig-name descname">TJunction</code><span class="sig-paren">(</span><em class="sig-param">radius</em>, <em class="sig-param">t_radius</em>, <em class="sig-param">direction</em>, <em class="sig-param">t_direction</em>, <em class="sig-param">lcar</em><span class="sig-paren">)</span><a class="headerlink" href="#pipemesh.pieces.TJunction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class representing a T-junction in GMSH</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pipemesh.pieces.proj">
+<code class="sig-prename descclassname">pipemesh.pieces.</code><code class="sig-name descname">proj</code><span class="sig-paren">(</span><em class="sig-param">vec1</em>, <em class="sig-param">vec2</em><span class="sig-paren">)</span><a class="headerlink" href="#pipemesh.pieces.proj" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the component of vec1 along vec2</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>vec2</strong> (<em>vec1</em><em>,</em>) – (np.array shape 3) xyz vector.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="pipemesh.pieces.vec_angle">
+<code class="sig-prename descclassname">pipemesh.pieces.</code><code class="sig-name descname">vec_angle</code><span class="sig-paren">(</span><em class="sig-param">vec1</em>, <em class="sig-param">vec2</em><span class="sig-paren">)</span><a class="headerlink" href="#pipemesh.pieces.vec_angle" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the angle between two numpy array vectors</p>
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">pipemesh</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="pipes.html">Pipes</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Pieces</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="pipes.html" title="previous chapter">Pipes</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Duncan Hunter.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/pieces.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
