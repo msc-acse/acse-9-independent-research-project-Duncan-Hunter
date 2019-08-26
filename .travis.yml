@@ -1,5 +1,0 @@
-language: python
-
-before_script: cd Tools/Duncan
-
-script: pytest
