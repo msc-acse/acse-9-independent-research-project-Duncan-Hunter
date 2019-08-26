@@ -1,6 +1,20 @@
-# icferst_ACSE-IRP
-icferst pre and post processing development for MSc ACSE Individual Research Projects.
+# ACSE-9 Independent Research Project
+## Duncan Hunter
 
-This is an example of what the repository may look like (WIP, not consulted yet):
+This is the submission repository. As the project is a pre-processing feature in the IC-FERST workflow, this repository is a clone of a shared repository, where another person was working on post-processing. This repository only contains my work, the other branch ('anita') has been removed. The commit history has been preserved. The shared repository can be found [here](https://github.com/ImperialCollegeLondon/icferst_ACSE-IRP). The python package created, *pipemesh* has a [public repository](https://github.com/Duncan-Hunter/pipemesh), which is a few pushes behind this one, and is used so readthedocs can generate and host documentation, as well as provide access to the source code for people using it.
 
-![Screenshot](Manual/Figures/example_repository.png)
+This repository's structure:
+```
++-- Tools/
+|   +-- pipemesh/
+|    // Python package directory, with pytest script and examples.py file.
+|        +-- docs/
+|        // Copy of what readthedocs uses in the public repository.
+|        +-- pipemesh/
+|        // Contains modules *pipes* and *pieces*.
+|            +-- icferst/
+|            // Contains *auto_mpml* module.
++-- test_cases/
+|    +-- pipemesh/
+|    // Contains examples of pipemesh's integration with IC-FERST
+```
