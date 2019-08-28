@@ -24,7 +24,7 @@ options.set_all(sim_name="3d_pipe_cylinder_test_case",
                 outlet_phys_ids=outlets,
                 cyl_phys_ids=cyl_phys_ids,
                 max_no_nodes=10000,
-                min_mesh_size=0.2,
+                min_mesh_size=0.08,
                 finish_time=1.0,
                 t_adapt_delay=0.5
                 )
