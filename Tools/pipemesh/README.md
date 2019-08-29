@@ -3,6 +3,12 @@ These tools use the GMSH-SDK (or GMSH API), available [here](http://gmsh.info/).
 
 The documentation for pipemesh can be found [here](https://pipemesh.readthedocs.io/en/latest/).
 
+## Requirements:
+- libgmsh.so, libgmsh.so.4.3, libgmsh.so.4.3.0 from the GMSH SDK.
+- NumPy, SciPy
+
+*pipemesh* is currently only supported on Linux systems.
+
 ## Installation
 ```python
 python3 -m pip install --user pipemesh
@@ -55,10 +61,6 @@ network.generate(filename="example", binary=False, write_info=False, mesh_format
 Which will write the file "example.msh", as a msh2 binary file.
 
 Network has get_phys_ids methods, which can be used with AutoMPML.
-
-### Requirements for pipes.py:
-- libgmsh.so, libgmsh.so.4.3, libgmsh.so.4.3.0 from the GMSH SDK.
-- NumPy, SciPy
 
 ### AutoMPML
 The file auto_mpml.py contains the class AutoMPML. This edits a basic pipe flow simulation .mpml file used with IC-FERST by inputting the user values in the right places. This isn't actually automatic, but can save time by not editing mpml files with Diamond. Options that can be changed are relevant to conducting a pipe flow investigation with [IC-FERST](http://multifluids.github.io/).
