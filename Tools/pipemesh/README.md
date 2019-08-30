@@ -7,7 +7,7 @@ The documentation for pipemesh can be found [here](https://pipemesh.readthedocs.
 - libgmsh.so, libgmsh.so.4.3, libgmsh.so.4.3.0 (or higher) from the GMSH SDK. Download the SDK and navigate to the lib/ folder to find these, or use the versions hosted in this repository.
 - SciPy (and NumPy, installed with SciPy).
 
-*pipemesh* is currently only supported on Linux systems.
+*pipemesh* is currently only supported on Linux systems (e.g. Ubuntu 16, 18).
 
 ## Installation
 
