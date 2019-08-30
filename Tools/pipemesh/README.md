@@ -1,22 +1,38 @@
 # pipemesh
-These tools use the GMSH-SDK (or GMSH API), available [here](http://gmsh.info/).
+These tools use the GMSH-SDK (or GMSH-API), available [here](http://gmsh.info/).
 
 The documentation for pipemesh can be found [here](https://pipemesh.readthedocs.io/en/latest/).
 
 ## Requirements:
-- libgmsh.so, libgmsh.so.4.3, libgmsh.so.4.3.0 from the GMSH SDK.
-- NumPy, SciPy
+- libgmsh.so, libgmsh.so.4.3, libgmsh.so.4.3.0 (or higher) from the GMSH SDK. Download the SDK and navigate to the lib/ folder to find these, or use the versions hosted in this repository.
+- SciPy (and NumPy, installed with SciPy).
 
 *pipemesh* is currently only supported on Linux systems.
 
 ## Installation
-```python
-python3 -m pip install --user pipemesh
+
+```bash
+$python3 -m pip install --user pipemesh
 ```
 
-Once completed, navigate to site-packages/pipemesh. Place the files libgmsh.so, libgmsh.so.4.3 and libgmsh.so.4.3.0, which can be downloaded from the GMSH website (link above).
+Once completed, navigate to site-packages/pipemesh of the python installation used. Place the files libgmsh.so, libgmsh.so.4.3 and libgmsh.so.4.3.0 in this folder.
 
+A virtual environment can be useful to locate the site-packages directory more easily.
 
+```bash
+# If you don't have venv
+$sudo apt-get install python3-venv
+
+$mkdir virtual_env # Name of your virtual environment
+$python3 -m venv virtual_env
+$source virtual_env/bin/activate
+$python3 -m pip install –upgrade pip
+$python3 -m pip install --user scipy
+$python3 -m pip install --user pipemesh
+```
+Then simply place the libgmsh files into virtual_env/lib/site-packages/pipemesh/. Ensure to use the virtual environment every time you need to use *pipemesh*.
+
+If you really don't want to use pip to install, clone the repository, and add acse-9.../pipemesh/ to PATH so python can find it.
 
 ### pipes.py
 Using the pieces above and the Network class, pipes and pipe networks can be easily built. A Network is started with:
