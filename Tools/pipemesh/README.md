@@ -69,6 +69,7 @@ network.add_cylinder(1, 0.1, out_number=2)
 network.add_curve([-1,0,0], 0.5, 0.05, out_number=3)
 network.add_cylinder(1.5, 0.1, out_number=3)
 ```
+More examples can be found in examples.py.
 
 Once the Network is complete, you can fuse the objects together and create physical surfaces and volumes, and set the local mesh sizes. Information can be obtained and written to file. This is all done with one call.
 ```python
